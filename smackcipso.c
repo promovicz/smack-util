@@ -21,6 +21,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "smack.h"
+
 #define LSIZE 23
 #define NSIZE 4
 #define MAXCATNUM 239
@@ -42,9 +44,9 @@ main(int argc, char *argv[])
 	int i;
 	int err;
 
-	cipsofd = open("/smack/cipso", O_RDWR);
+	cipsofd = open(SMACK_CIPSO, O_RDWR);
 	if (cipsofd < 0) {
-		perror("opening /smack/cipso");
+		perror("opening " SMACK_CIPSO);
 		exit(1);
 	}
 

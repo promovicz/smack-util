@@ -19,11 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SMACK_STAR	"*"
-#define SMACK_FLOOR	"_"
-#define SMACK_HAT	"^"
-#define SMACK_LOAD	"/smack/load"
-#define SMACK_SIZE	24
+#include "smack.h"
 
 struct rule {
 	struct rule	*next;

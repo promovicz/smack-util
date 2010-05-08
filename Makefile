@@ -5,19 +5,25 @@
 # Copyright (c) 2007 Casey Schaufler <casey@schaufler-ca.com>
 #
 
-PROGRAMS = smackload smackcipso smackpolyport
+PROGRAMS = smackload smackcipso smackpolyport smackexec t
 
 STATICLIB = libsmack.a
 
-LIBSMACKSRC = smackrecvmsg.c smackaccess.c smackpolyport.c
-LIBSMACKOBJ = smackrecvmsg.o smackaccess.o
+LIBSMACKOBJ = smackrecvmsg.o smackaccess.o setsmack.o getsmack.o smackenabled.o getsmackuser.o
 
-default: ${PROGRAMS} ${STATICLIB}
+CFLAGS+=-fPIC -L. -lsmack
+
+default: ${PROGRAMS} ${STATICLIB} pam_smack.so
+
+${PROGRAMS}: ${STATICLIB}
 
 clean:
 	rm -f ${PROGRAMS} ${STATICLIB} ${LIBSMACKOBJ}
 
 libsmack.a: ${LIBSMACKOBJ}
 	ar cr $@ ${LIBSMACKOBJ}
+
+pam_smack.so: pam_smack.o ${LIBSMACKOBJ}
+	$(CC) -fPIC -shared -o pam_smack.so pam_smack.o ${LIBSMACKOBJ} -lpam
 
 
