@@ -1,0 +1,92 @@
+diff -uprN coreutils-6.9-base/src/ls.c coreutils-6.9/src/ls.c
+--- coreutils-6.9-base/src/ls.c	2007-03-18 14:36:43.000000000 -0700
++++ coreutils-6.9/src/ls.c	2007-04-17 06:42:14.000000000 -0700
+@@ -38,6 +38,7 @@
+ 
+ #include <config.h>
+ #include <sys/types.h>
++#include <attr/attributes.h>
+ 
+ #if HAVE_TERMIOS_H
+ # include <termios.h>
+@@ -177,6 +178,9 @@ struct fileinfo
+     /* For long listings, true if the file has an access control list.  */
+     bool have_acl;
+ #endif
++
++    /* Smack label */
++    char smack[8];
+   };
+ 
+ #if USE_ACL
+@@ -646,6 +650,10 @@ static size_t tabsize;
+ 
+ static bool print_dir_name;
+ 
++/* True means print the SMACK attribute.  */
++
++static bool print_smack;
++
+ /* The line length to use for breaking lines in many-per-line format.
+    Can be set with -w.  */
+ 
+@@ -775,6 +783,7 @@ static struct option const long_options[
+   {"ignore", required_argument, NULL, 'I'},
+   {"indicator-style", required_argument, NULL, INDICATOR_STYLE_OPTION},
+   {"dereference", no_argument, NULL, 'L'},
++  {"smack", no_argument, NULL, 'M'},
+   {"literal", no_argument, NULL, 'N'},
+   {"quote-name", no_argument, NULL, 'Q'},
+   {"quoting-style", required_argument, NULL, QUOTING_STYLE_OPTION},
+@@ -1514,7 +1523,7 @@ decode_switches (int argc, char **argv)
+   }
+ 
+   while ((c = getopt_long (argc, argv,
+-			   "abcdfghiklmnopqrstuvw:xABCDFGHI:LNQRST:UX1",
++			   "abcdfghiklmnopqrstuvw:xABCDFGHI:LMNQRST:UX1",
+ 			   long_options, NULL)) != -1)
+     {
+       switch (c)
+@@ -1679,6 +1688,10 @@ decode_switches (int argc, char **argv)
+ 	  dereference = DEREF_ALWAYS;
+ 	  break;
+ 
++	case 'M':
++	  print_smack = true;
++	  break;
++
+ 	case 'N':
+ 	  set_quoting_style (NULL, literal_quoting_style);
+ 	  break;
+@@ -2768,6 +2781,18 @@ gobble_file (char const *name, enum file
+ 	  if (file_size_width < len)
+ 	    file_size_width = len;
+ 	}
++
++    if (print_smack)
++      {
++        int len = 0;
++        int err = getxattr (absolute_name, "security.SMACK64", f->smack, &len);
++        if (err < 0)
++          {
++perror(absolute_name);
++            f->smack[0] = '?';
++            f->smack[1] = '\0';
++          }
++      }
+     }
+ 
+   if (print_inode)
+@@ -3421,6 +3446,12 @@ print_long_format (const struct fileinfo
+ 
+   p = buf;
+ 
++  if (print_smack)
++    {
++      sprintf(p, "%-8s", f->smack);
++      p += 8;
++    }
++
+   if (print_inode)
+     {
+       char hbuf[INT_BUFSIZE_BOUND (uintmax_t)];

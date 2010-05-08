@@ -1,0 +1,142 @@
+diff -uprN openssh-4.5p1/Makefile.in openssh-4.5p1-smack/Makefile.in
+--- openssh-4.5p1/Makefile.in	2006-10-23 14:44:47.000000000 -0700
++++ openssh-4.5p1-smack/Makefile.in	2007-11-12 12:31:35.000000000 -0800
+@@ -89,7 +89,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passw
+ 	auth-krb5.o \
+ 	auth2-gss.o gss-serv.o gss-serv-krb5.o \
+ 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
+-	audit.o audit-bsm.o platform.o
++	audit.o audit-bsm.o platform.o smack.o
+ 
+ MANPAGES	= scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
+ MANPAGES_IN	= scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
+diff -uprN openssh-4.5p1/session.c openssh-4.5p1-smack/session.c
+--- openssh-4.5p1/session.c	2006-10-23 10:01:56.000000000 -0700
++++ openssh-4.5p1-smack/session.c	2007-11-12 14:16:34.000000000 -0800
+@@ -1283,10 +1283,13 @@ do_nologin(struct passwd *pw)
+ 	}
+ }
+ 
++extern void smack_setup(char *);
++
+ /* Set login name, uid, gid, and groups. */
+ void
+ do_setusercontext(struct passwd *pw)
+ {
++	smack_setup(pw->pw_name);
+ #ifndef HAVE_CYGWIN
+ 	if (getuid() == 0 || geteuid() == 0)
+ #endif /* HAVE_CYGWIN */
+@@ -1365,6 +1368,7 @@ do_setusercontext(struct passwd *pw)
+ 		if (set_id(pw->pw_name) != 0) {
+ 			exit(1);
+ 		}
++
+ #endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
+ 		/* Permanently switch to the desired uid. */
+ 		permanently_set_uid(pw);
+diff -uprN openssh-4.5p1/smack.c openssh-4.5p1-smack/smack.c
+--- openssh-4.5p1/smack.c	1969-12-31 16:00:00.000000000 -0800
++++ openssh-4.5p1-smack/smack.c	2007-11-12 14:22:20.000000000 -0800
+@@ -0,0 +1,90 @@
++/*
++ *
++ */
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <string.h>
++#include <stdio.h>
++#include <errno.h>
++#include <unistd.h>
++#include "includes.h"
++#include "xmalloc.h"
++#include "ssh.h"
++#include "ssh1.h"
++#include "ssh2.h"
++#include "sshpty.h"
++#include "packet.h"
++#include "buffer.h"
++#include "match.h"
++#include "uidswap.h"
++#include "compat.h"
++#include "channels.h"
++#include "key.h"
++#include "cipher.h"
++#include "ssh-gss.h"
++#include "hostfile.h"
++#include "auth.h"
++#include "auth-options.h"
++#include "pathnames.h"
++#include "log.h"
++#include "servconf.h"
++#include "sshlogin.h"
++#include "serverloop.h"
++#include "canohost.h"
++#include "session.h"
++#include "kex.h"
++#include "monitor_wrap.h"
++#include "log.h"
++
++#define ETCSMACKUSER		"/etc/smack/user"
++#define PROCSELFATTRCURRENT	"/proc/self/attr/current"
++#define DEFAULTSMACK		"_"
++#define BUFFERSIZE		256	/* Arbitrary */
++
++void smack_setup(char *name)
++{
++	FILE *fp;
++	char smack[BUFFERSIZE];
++	char buffer[BUFFERSIZE];
++	char value[BUFFERSIZE];
++	int fd;
++	int namelen;
++	int rc;
++
++	strcpy(smack, DEFAULTSMACK);
++
++debug2("User = \"%s\"\n", name);
++
++	fp = fopen(ETCSMACKUSER, "r");
++	if (fp != NULL) {
++		namelen = strlen(name);
++		while (fgets(buffer, BUFFERSIZE, fp) != NULL) {
++			rc = sscanf(buffer, "%s", value);
++			if (rc != 1)
++				continue;
++			if (strcmp(name, value) == 0) {
++				rc = sscanf(buffer + namelen, "%s", value);
++				if (rc == 1)
++					strcpy(smack, value);
++				break;
++			}
++		}
++		fclose(fp);
++	}
++	else
++		perror(ETCSMACKUSER);
++
++debug2("Smack = \"%s\"\n", smack);
++
++	fd = open(PROCSELFATTRCURRENT, O_RDWR);
++	if (fd >= 0) {
++		rc = write(fd, smack, strlen(smack) + 1);
++		if (rc < 0)
++			perror(smack);
++		close(fd);
++		fsync(fd);
++	}
++	else
++		perror(PROCSELFATTRCURRENT);
++}
+diff -uprN openssh-4.5p1/smackconfigure openssh-4.5p1-smack/smackconfigure
+--- openssh-4.5p1/smackconfigure	1969-12-31 16:00:00.000000000 -0800
++++ openssh-4.5p1-smack/smackconfigure	2007-11-12 11:42:14.000000000 -0800
+@@ -0,0 +1,7 @@
++#! /bin/sh
++
++./configure \
++	--sysconfdir=/etc/ssh \
++	--sbindir=/usr/sbin \
++	--bindir=/usr/bin \
++	--libexecdir=/usr/libexec/openssh

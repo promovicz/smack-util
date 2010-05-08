@@ -1,0 +1,61 @@
+
+This is smack-util-0.1, or thereabouts.
+
+Smack will run without any of this, but you will most
+likely want most of this.
+
+etc-init.d-smack
+
+This is the init script for Smack. It invokes smackcipso
+and smackload (below) to initialize your Smack access rules
+and any CIPSO bindings that you want to assign. It goes in
+/etc/init.d. For Fedora Core 7 that would be:
+
+   # cp etc-init.d-smack /etc/init.d/smack
+   # chmod 755 /etc/init.d/smack
+   # ln -s ../init.d/smack /etc/rc5.d/S01smack
+
+busybox-1.7.2.patch
+
+This is an early attempt to put Smack funtionality into busybox.
+So far it's limited to enhancements to ls, ps, stat, and id and
+new applets newsmack, smackcipso, smackload, and smackenabled.
+The base source for busybox-1.7.2 is not included.
+
+coreutils-6.9.patch
+
+This adds Smack label reporting to ls.
+The base source for coreutils-6.9 is not included.
+
+openssh-4.5p1.patch
+
+This adds Smack label setting to sshd. It is not a good
+implementation, it is a hack. Not all configuration options
+are going to work, but this will vary depending on your setup.
+The base source for openssh-4.5p1 is not included.
+
+smackcipso.c
+
+The program that correctly formats data for writing to /smack/cipso.
+It reads cipso mappings from standard input in the form:
+
+   label level [category]...
+
+smackload.c
+
+The program that correctly formats data for writing to /smack/load.
+It reads access rules from standard input in the form:
+
+   subject-label object-label [RrWwXxAa-]...
+
+smackrecvmsg.c
+
+A handy function that acts like recvmsg() but that passes back
+the Smack label on the message, assuming all required setup has
+been done. The sole contents of libsmack.a so far.
+
+Makefile
+
+Should be obvious, but it's not very sophisticated and doesn't
+comply to and "standard" for application package Makefiles.
+

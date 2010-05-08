@@ -1,0 +1,1380 @@
+diff -uprN busybox-1.7.2-base/Config.in busybox-1.7.2-smack/Config.in
+--- busybox-1.7.2-base/Config.in	2007-09-03 04:48:58.000000000 -0700
++++ busybox-1.7.2-smack/Config.in	2007-10-11 02:04:53.000000000 -0700
+@@ -222,6 +222,13 @@ config SELINUX
+ 
+ 	  Most people will leave this set to 'N'.
+ 
++config SMACK
++	bool "Support Smack"
++	default n
++	help
++	  Enable support for Smack in applets ls, ps, and id.  Also provide
++	  the option of compiling in Smack applets.
++
+ config FEATURE_PREFER_APPLETS
+ 	bool "exec prefers applets"
+ 	default n
+@@ -506,4 +513,5 @@ source shell/Config.in
+ source sysklogd/Config.in
+ source runit/Config.in
+ source selinux/Config.in
++source smack/Config.in
+ source ipsvd/Config.in
+diff -uprN busybox-1.7.2-base/coreutils/id.c busybox-1.7.2-smack/coreutils/id.c
+--- busybox-1.7.2-base/coreutils/id.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/id.c	2007-11-19 15:57:52.000000000 -0800
+@@ -22,6 +22,9 @@
+ #if ENABLE_SELINUX
+ #define JUST_CONTEXT     16
+ #endif
++#if ENABLE_SMACK
++#define JUST_CONTEXT     16
++#endif
+ 
+ static int printf_full(unsigned int id, const char *arg, const char prefix)
+ {
+@@ -47,10 +50,21 @@ int id_main(int argc, char **argv)
+ #if ENABLE_SELINUX
+ 	security_context_t scontext;
+ #endif
++#if ENABLE_SMACK
++	char smack[80];
++#endif
+ 	/* Don't allow -n -r -nr -ug -rug -nug -rnug */
+ 	/* Don't allow more than one username */
+-	opt_complementary = "?1:u--g:g--u:r?ug:n?ug" USE_SELINUX(":u--Z:Z--u:g--Z:Z--g");
+-	flags = getopt32(argv, "rnug" USE_SELINUX("Z"));
++#if ENABLE_SELINUX
++	opt_complementary = "?1:u--g:g--u:r?ug:n?ug:u--Z:Z--u:g--Z:Z--g";
++	flags = getopt32(argv, "rnugZ");
++#elif ENABLE_SMACK
++	opt_complementary = "?1:u--g:g--u:r?ug:n?ug:u--Z:Z--u:g--Z:Z--g";
++	flags = getopt32(argv, "rnugZ");
++#else
++	opt_complementary = "?1:u--g:g--u:r?ug:n?ug";
++	flags = getopt32(argv, "rnug");
++#endif
+ 
+ 	/* This values could be overwritten later */
+ 	uid = geteuid();
+@@ -68,7 +82,13 @@ int id_main(int argc, char **argv)
+ 		/* in this case PRINT_REAL is the same */
+ 	}
+ 
+-	if (flags & (JUST_GROUP | JUST_USER USE_SELINUX(| JUST_CONTEXT))) {
++#if ENABLE_SELINUX
++	if (flags & (JUST_GROUP | JUST_USER | JUST_CONTEXT)) {
++#elif ENABLE_SMACK
++	if (flags & (JUST_GROUP | JUST_USER | JUST_CONTEXT)) {
++#else
++	if (flags & (JUST_GROUP | JUST_USER )) {
++#endif
+ 		/* JUST_GROUP and JUST_USER are mutually exclusive */
+ 		if (flags & NAME_NOT_NUMBER) {
+ 			/* bb_getXXXid(-1) exit on failure, puts cannot segfault */
+@@ -95,6 +115,18 @@ int id_main(int argc, char **argv)
+ 			printf("%s\n", scontext);
+ 		}
+ #endif
++#if ENABLE_SMACK
++		if (flags & JUST_CONTEXT) {
++			if (argc - optind == 1) {
++				bb_error_msg_and_die("user name can't be passed with -Z");
++			}
++
++			if (smack_from_proc(-1, smack, sizeof(smack)) < 0) {
++				bb_error_msg_and_die("can't get process context");
++			}
++			printf("%s\n", smack);
++		}
++#endif
+ 		/* exit */
+ 		fflush_stdout_and_exit(EXIT_SUCCESS);
+ 	}
+@@ -120,6 +152,10 @@ int id_main(int argc, char **argv)
+ 		printf(" context=%s", context);
+ 	}
+ #endif
++#if ENABLE_SMACK
++	smack_from_proc(-1, smack, sizeof(smack));
++	printf(" smack=\"%s\"", smack);
++#endif
+ 
+ 	putchar('\n');
+ 	fflush_stdout_and_exit(status);
+diff -uprN busybox-1.7.2-base/coreutils/ls.c busybox-1.7.2-smack/coreutils/ls.c
+--- busybox-1.7.2-base/coreutils/ls.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/ls.c	2007-11-20 12:33:32.000000000 -0800
+@@ -66,12 +66,12 @@ LIST_EXEC       = 1 << 14,
+ LIST_MASK       = (LIST_EXEC << 1) - 1,
+ 
+ /* what files will be displayed */
+-DISP_DIRNAME    = 1 << 15,      /* 2 or more items? label directories */
+-DISP_HIDDEN     = 1 << 16,      /* show filenames starting with . */
+-DISP_DOT        = 1 << 17,      /* show . and .. */
+-DISP_NOLIST     = 1 << 18,      /* show directory as itself, not contents */
+-DISP_RECURSIVE  = 1 << 19,      /* show directory and everything below it */
+-DISP_ROWS       = 1 << 20,      /* print across rows */
++DISP_DIRNAME    = 1 << 16,      /* 2 or more items? label directories */
++DISP_HIDDEN     = 1 << 17,      /* show filenames starting with . */
++DISP_DOT        = 1 << 18,      /* show . and .. */
++DISP_NOLIST     = 1 << 19,      /* show directory as itself, not contents */
++DISP_RECURSIVE  = 1 << 20,      /* show directory and everything below it */
++DISP_ROWS       = 1 << 21,      /* print across rows */
+ DISP_MASK       = ((DISP_ROWS << 1) - 1) & ~(DISP_DIRNAME - 1),
+ 
+ /* how will the files be sorted (CONFIG_FEATURE_LS_SORTFILES) */
+@@ -136,6 +136,7 @@ struct dnode {                  /* the b
+ 	int   allocated;
+ 	struct stat dstat;      /* the file stat info */
+ 	USE_SELINUX(security_context_t sid;)
++	USE_SMACK(char xattr[80];)
+ 	struct dnode *next;     /* point at the next node */
+ };
+ typedef struct dnode dnode_t;
+@@ -163,6 +164,10 @@ static struct dnode *my_stat(const char 
+ 	struct stat dstat;
+ 	struct dnode *cur;
+ 	USE_SELINUX(security_context_t sid = NULL;)
++#if ENABLE_SMACK
++	char xattr[80];
++	int i;
++#endif
+ 
+ 	if ((all_fmt & FOLLOW_LINKS) || force_follow) {
+ #if ENABLE_SELINUX
+@@ -170,6 +175,11 @@ static struct dnode *my_stat(const char 
+ 			 getfilecon(fullname, &sid);
+ 		}
+ #endif
++#if ENABLE_SMACK
++		i = smack_from_file(fullname, xattr, 80, 1);
++		if (i < 0)
++			xattr[0] = '\0';
++#endif
+ 		if (stat(fullname, &dstat)) {
+ 			bb_perror_msg("%s", fullname);
+ 			status = EXIT_FAILURE;
+@@ -181,6 +191,11 @@ static struct dnode *my_stat(const char 
+ 			lgetfilecon(fullname, &sid);
+ 		}
+ #endif
++#if ENABLE_SMACK
++		i = smack_from_file(fullname, xattr, 80, 0);
++		if (i < 0)
++			xattr[0] = '\0';
++#endif
+ 		if (lstat(fullname, &dstat)) {
+ 			bb_perror_msg("%s", fullname);
+ 			status = EXIT_FAILURE;
+@@ -193,6 +208,7 @@ static struct dnode *my_stat(const char 
+ 	cur->name = name;
+ 	cur->dstat = dstat;
+ 	USE_SELINUX(cur->sid = sid;)
++	USE_SMACK(strncpy(cur->xattr, xattr, 80);)
+ 	return cur;
+ }
+ 
+@@ -402,6 +418,7 @@ static void showfiles(struct dnode **dn,
+ 		}
+ 		column_width += tabstops +
+ 			USE_SELINUX( ((all_fmt & LIST_CONTEXT) ? 33 : 0) + )
++			USE_SMACK(   ((all_fmt & LIST_CONTEXT) ? 24 : 0) + )
+ 			             ((all_fmt & LIST_INO) ? 8 : 0) +
+ 			             ((all_fmt & LIST_BLOCKS) ? 5 : 0);
+ 		ncols = (int) (terminal_width / column_width);
+@@ -651,6 +668,14 @@ static int list_single(struct dnode *dn)
+ 			}
+ 			break;
+ #endif
++#if ENABLE_SMACK
++		case LIST_CONTEXT:
++			{
++				printf("%-23s ", dn->xattr);
++				column += MAX(24, strlen(dn->xattr) + 1);
++			}
++			break;
++#endif
+ 		case LIST_FILENAME:
+ 			errno = 0;
+ #if ENABLE_FEATURE_LS_COLOR
+@@ -719,8 +744,10 @@ static const char ls_options[] ALIGN1 =
+ 	USE_FEATURE_LS_RECURSIVE("R")
+ 	USE_FEATURE_HUMAN_READABLE("h")
+ 	USE_SELINUX("K")
++	USE_SMACK("K")
+ 	USE_FEATURE_AUTOWIDTH("T:w:")
+-	USE_SELINUX("Z");
++	USE_SELINUX("Z")
++	USE_SMACK("Z");
+ 
+ enum {
+ 	LIST_MASK_TRIGGER	= 0,
+@@ -741,7 +768,12 @@ static const unsigned opt_flags[] = {
+ 	LIST_BLOCKS,                /* s */
+ 	DISP_ROWS,                  /* x */
+ 	DISP_HIDDEN,                /* A */
+-	ENABLE_SELINUX * LIST_CONTEXT, /* k (ignored if !SELINUX) */
++#if ENABLE_SELINUX
++	LIST_CONTEXT,               /* k (ignored if !SELINUX) */
++#endif
++#if ENABLE_SMACK
++	LIST_CONTEXT,               /* k (ignored if !SMACK) */
++#endif
+ #if ENABLE_FEATURE_LS_TIMESTAMPS
+ 	TIME_CHANGE | (ENABLE_FEATURE_LS_SORTFILES * SORT_CTIME),   /* c */
+ 	LIST_FULLTIME,              /* e */
+@@ -770,12 +802,18 @@ static const unsigned opt_flags[] = {
+ #if ENABLE_SELINUX
+ 	LIST_MODEBITS|LIST_NLINKS|LIST_CONTEXT|LIST_SIZE|LIST_DATE_TIME, /* K */
+ #endif
++#if ENABLE_SMACK
++	LIST_MODEBITS|LIST_NLINKS|LIST_CONTEXT|LIST_SIZE|LIST_DATE_TIME, /* K */
++#endif
+ #if ENABLE_FEATURE_AUTOWIDTH
+ 	0, 0,                       /* T, w - ignored */
+ #endif
+ #if ENABLE_SELINUX
+ 	LIST_MODEBITS|LIST_ID_NAME|LIST_CONTEXT, /* Z */
+ #endif
++#if ENABLE_SMACK
++	LIST_MODEBITS|LIST_ID_NAME|LIST_CONTEXT, /* Z */
++#endif
+ 	(1U<<31)
+ };
+ 
+diff -uprN busybox-1.7.2-base/coreutils/stat.c busybox-1.7.2-smack/coreutils/stat.c
+--- busybox-1.7.2-base/coreutils/stat.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/stat.c	2007-11-20 13:24:05.000000000 -0800
+@@ -20,6 +20,7 @@
+ #define OPT_TERSE		(1<<1)
+ #define OPT_DEREFERENCE	(1<<2)
+ #define OPT_SELINUX		(1<<3)
++#define OPT_SMACK		(1<<3)
+ 
+ static char buf[sizeof("YYYY-MM-DD HH:MM:SS.000000000")] ALIGN1;
+ 
+@@ -119,7 +120,8 @@ static char const *human_fstype(long f_t
+ /* print statfs info */
+ static void print_statfs(char *pformat, const size_t buf_len, const char m,
+ 			 const char *const filename, void const *data
+-			 USE_SELINUX(, security_context_t scontext))
++			 USE_SELINUX(, security_context_t scontext)
++			 USE_SMACK(, char *smack))
+ {
+ 	struct statfs const *statfsbuf = data;
+ 	if (m == 'n') {
+@@ -160,6 +162,11 @@ static void print_statfs(char *pformat, 
+ 		strncat(pformat, "s", buf_len);
+ 		printf(scontext);
+ #endif
++#if ENABLE_SMACK
++	} else if (m == 'C' && (option_mask32 & OPT_SMACK)) {
++		strncat(pformat, "s", buf_len);
++		printf(smack);
++#endif
+ 	} else {
+ 		strncat(pformat, "c", buf_len);
+ 		printf(pformat, m);
+@@ -169,7 +176,8 @@ static void print_statfs(char *pformat, 
+ /* print stat info */
+ static void print_stat(char *pformat, const size_t buf_len, const char m,
+ 		       const char *const filename, void const *data
+-			   USE_SELINUX(, security_context_t scontext))
++			   USE_SELINUX(, security_context_t scontext)
++			   USE_SMACK(, char *smack))
+ {
+ #define TYPE_SIGNED(t) (! ((t) 0 < (t) -1))
+ 	struct stat *statbuf = (struct stat *) data;
+@@ -275,16 +283,33 @@ static void print_stat(char *pformat, co
+ 		strncat(pformat, "s", buf_len);
+ 		printf(pformat, scontext);
+ #endif
++#if ENABLE_SMACK
++	} else if (m == 'C' && (option_mask32 & OPT_SMACK)) {
++		strncat(pformat, "s", buf_len);
++		printf(pformat, smack);
++#endif
+ 	} else {
+ 		strncat(pformat, "c", buf_len);
+ 		printf(pformat, m);
+ 	}
+ }
+ 
++#if ENABLE_SELINUX
++static void print_it(char const *masterformat, char const *filename,
++		     void (*print_func) (char *, size_t, char, char const *,
++				void const *, security_context_t scontext),
++			 void const *data, security_context_t scontext)
++#elif ENABLE_SMACK
+ static void print_it(char const *masterformat, char const *filename,
+-		     void (*print_func) (char *, size_t, char, char const *, void const *
+-								 USE_SELINUX(, security_context_t scontext)),
+-					 void const *data USE_SELINUX(, security_context_t scontext) )
++		     void (*print_func) (char *, size_t, char, char const *,
++				void const *, char *smack),
++			 void const *data, char *smack)
++#else
++static void print_it(char const *masterformat, char const *filename,
++		     void (*print_func) (char *, size_t, char, char const *,
++				void const *),
++			 void const *data)
++#endif
+ {
+ 	char *b;
+ 
+@@ -324,7 +349,8 @@ static void print_it(char const *masterf
+ 			putchar('%');
+ 			break;
+ 		default:
+-			print_func(dest, n_alloc, *p, filename, data USE_SELINUX(,scontext));
++			print_func(dest, n_alloc, *p, filename, data
++				USE_SELINUX(,scontext) USE_SMACK(,smack));
+ 			break;
+ 		}
+ 	}
+@@ -352,6 +378,18 @@ static bool do_statfs(char const *filena
+ 		}
+ 	}
+ #endif
++#if ENABLE_SMACK
++	char smack[SMACKBUFFSIZE];
++
++	if (option_mask32 & OPT_SMACK) {
++		int i = option_mask32 & OPT_DEREFERENCE;
++
++		if (smack_from_file(filename, smack, sizeof(smack), i) < 0) {
++			bb_perror_msg(filename);
++			return 0;
++		}
++	}
++#endif
+ 	if (statfs(filename, &statfsbuf) != 0) {
+ 		bb_perror_msg("cannot read file system information for '%s'", filename);
+ 		return 0;
+@@ -359,16 +397,7 @@ static bool do_statfs(char const *filena
+ 
+ #if ENABLE_FEATURE_STAT_FORMAT
+ 	if (format == NULL)
+-#if !ENABLE_SELINUX
+-		format = (option_mask32 & OPT_TERSE
+-			? "%n %i %l %t %s %b %f %a %c %d\n"
+-			: "  File: \"%n\"\n"
+-			  "    ID: %-8i Namelen: %-7l Type: %T\n"
+-			  "Block size: %-10s\n"
+-			  "Blocks: Total: %-10b Free: %-10f Available: %a\n"
+-			  "Inodes: Total: %-10c Free: %d");
+-	print_it(format, filename, print_statfs, &statfsbuf USE_SELINUX(, scontext));
+-#else
++#if ENABLE_SELINUX
+ 	format = (option_mask32 & OPT_TERSE
+ 			? (option_mask32 & OPT_SELINUX ? "%n %i %l %t %s %b %f %a %c %d %C\n":
+ 			"%n %i %l %t %s %b %f %a %c %d\n")
+@@ -385,8 +414,36 @@ static bool do_statfs(char const *filena
+ 			"Blocks: Total: %-10b Free: %-10f Available: %a\n"
+ 			"Inodes: Total: %-10c Free: %d\n")
+ 			);
+-	print_it(format, filename, print_statfs, &statfsbuf USE_SELINUX(, scontext));
++	print_it(format, filename, print_statfs, &statfsbuf, scontext);
++#elif ENABLE_SMACK
++	format = (option_mask32 & OPT_TERSE
++			? (option_mask32 & OPT_SMACK ? "%n %i %l %t %s %b %f %a %c %d %C\n":
++			"%n %i %l %t %s %b %f %a %c %d\n")
++			: (option_mask32 & OPT_SMACK ?
++			"  File: \"%n\"\n"
++			"    ID: %-8i Namelen: %-7l Type: %T\n"
++			"Block size: %-10s\n"
++			"Blocks: Total: %-10b Free: %-10f Available: %a\n"
++			"Inodes: Total: %-10c Free: %d"
++			"  Smack: %C\n":
++			"  File: \"%n\"\n"
++			"    ID: %-8i Namelen: %-7l Type: %T\n"
++			"Block size: %-10s\n"
++			"Blocks: Total: %-10b Free: %-10f Available: %a\n"
++			"Inodes: Total: %-10c Free: %d\n")
++			);
++	print_it(format, filename, print_statfs, &statfsbuf, smack);
++#else
++		format = (option_mask32 & OPT_TERSE
++			? "%n %i %l %t %s %b %f %a %c %d\n"
++			: "  File: \"%n\"\n"
++			  "    ID: %-8i Namelen: %-7l Type: %T\n"
++			  "Block size: %-10s\n"
++			  "Blocks: Total: %-10b Free: %-10f Available: %a\n"
++			  "Inodes: Total: %-10c Free: %d");
++	print_it(format, filename, print_statfs, &statfsbuf, scontext);
+ #endif /* SELINUX */
++
+ #else /* FEATURE_STAT_FORMAT */
+ 	format = (option_mask32 & OPT_TERSE
+ 		? "%s %llx %lu "
+@@ -402,20 +459,7 @@ static bool do_statfs(char const *filena
+ 	else
+ 		printf("Type: %s\n", human_fstype(statfsbuf.f_type));
+ 
+-#if !ENABLE_SELINUX
+-	format = (option_mask32 & OPT_TERSE
+-		? "%lu %ld %ld %ld %ld %ld\n"
+-		: "Block size: %-10lu\n"
+-		  "Blocks: Total: %-10jd Free: %-10jd Available: %jd\n"
+-		  "Inodes: Total: %-10jd Free: %jd\n");
+-	printf(format,
+-	       (unsigned long) (statfsbuf.f_bsize),
+-	       (intmax_t) (statfsbuf.f_blocks),
+-	       (intmax_t) (statfsbuf.f_bfree),
+-	       (intmax_t) (statfsbuf.f_bavail),
+-	       (intmax_t) (statfsbuf.f_files),
+-	       (intmax_t) (statfsbuf.f_ffree));
+-#else
++#if ENABLE_SELINUX
+ 	format = (option_mask32 & OPT_TERSE
+ 		? (option_mask32 & OPT_SELINUX ? "%lu %ld %ld %ld %ld %ld %C\n":
+ 		"%lu %ld %ld %ld %ld %ld\n")
+@@ -438,7 +482,41 @@ static bool do_statfs(char const *filena
+ 
+ 	if (scontext)
+ 		freecon(scontext);
++#elif ENABLE_SMACK
++	format = (option_mask32 & OPT_TERSE
++		? (option_mask32 & OPT_SMACK ? "%lu %ld %ld %ld %ld %ld %C\n":
++		"%lu %ld %ld %ld %ld %ld\n")
++		: (option_mask32 & OPT_SMACK ?
++		"Block size: %-10lu\n"
++		"Blocks: Total: %-10jd Free: %-10jd Available: %jd\n"
++		"Inodes: Total: %-10jd Free: %jd"
++		"Smack: %C\n":
++		"Block size: %-10lu\n"
++		"Blocks: Total: %-10jd Free: %-10jd Available: %jd\n"
++		"Inodes: Total: %-10jd Free: %jd\n"));
++	printf(format,
++	       (unsigned long) (statfsbuf.f_bsize),
++	       (intmax_t) (statfsbuf.f_blocks),
++	       (intmax_t) (statfsbuf.f_bfree),
++	       (intmax_t) (statfsbuf.f_bavail),
++	       (intmax_t) (statfsbuf.f_files),
++	       (intmax_t) (statfsbuf.f_ffree),
++		smack);
++#else
++	format = (option_mask32 & OPT_TERSE
++		? "%lu %ld %ld %ld %ld %ld\n"
++		: "Block size: %-10lu\n"
++		  "Blocks: Total: %-10jd Free: %-10jd Available: %jd\n"
++		  "Inodes: Total: %-10jd Free: %jd\n");
++	printf(format,
++	       (unsigned long) (statfsbuf.f_bsize),
++	       (intmax_t) (statfsbuf.f_blocks),
++	       (intmax_t) (statfsbuf.f_bfree),
++	       (intmax_t) (statfsbuf.f_bavail),
++	       (intmax_t) (statfsbuf.f_files),
++	       (intmax_t) (statfsbuf.f_ffree));
+ #endif
++
+ #endif	/* FEATURE_STAT_FORMAT */
+ 	return 1;
+ }
+@@ -461,6 +539,18 @@ static bool do_stat(char const *filename
+ 		}
+ 	}
+ #endif
++#if ENABLE_SMACK
++	char smack[SMACKBUFFSIZE];
++
++	if (option_mask32 & OPT_SMACK) {
++		int i = option_mask32 & OPT_DEREFERENCE;
++
++		if (smack_from_file(filename, smack, sizeof(smack), i) < 0) {
++			bb_perror_msg(filename);
++			return 0;
++		}
++	}
++#endif
+ 	if ((option_mask32 & OPT_DEREFERENCE ? stat : lstat) (filename, &statbuf) != 0) {
+ 		bb_perror_msg("cannot stat '%s'", filename);
+ 		return 0;
+@@ -468,41 +558,56 @@ static bool do_stat(char const *filename
+ 
+ #if ENABLE_FEATURE_STAT_FORMAT
+ 	if (format == NULL) {
+-#if !ENABLE_SELINUX
++#if ENABLE_SELINUX
+ 		if (option_mask32 & OPT_TERSE) {
+-			format = "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o";
++			format = (option_mask32 & OPT_SELINUX ?
++				  "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o %C\n":
++				  "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o\n");
+ 		} else {
+ 			if (S_ISBLK(statbuf.st_mode) || S_ISCHR(statbuf.st_mode)) {
+-				format =
+-					"  File: \"%N\"\n"
+-					"  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+-					"Device: %Dh/%dd\tInode: %-10i  Links: %-5h"
+-					" Device type: %t,%T\n"
+-					"Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
+-					"Access: %x\n" "Modify: %y\n" "Change: %z\n";
++				format = (option_mask32 & OPT_SELINUX ?
++					  "  File: \"%N\"\n"
++					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					  "Device: %Dh/%dd\tInode: %-10i  Links: %-5h"
++					  " Device type: %t,%T\n"
++					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					  "   S_Context: %C\n"
++					  "Access: %x\n" "Modify: %y\n" "Change: %z\n":
++					  "  File: \"%N\"\n"
++					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					  "Device: %Dh/%dd\tInode: %-10i  Links: %-5h"
++					  " Device type: %t,%T\n"
++					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					  "Access: %x\n" "Modify: %y\n" "Change: %z\n");
+ 			} else {
+-				format =
+-					"  File: \"%N\"\n"
+-					"  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+-					"Device: %Dh/%dd\tInode: %-10i  Links: %h\n"
+-					"Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
+-					"Access: %x\n" "Modify: %y\n" "Change: %z\n";
++				format = (option_mask32 & OPT_SELINUX ?
++					  "  File: \"%N\"\n"
++					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					  "Device: %Dh/%dd\tInode: %-10i  Links: %h\n"
++					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					  "S_Context: %C\n"
++					  "Access: %x\n" "Modify: %y\n" "Change: %z\n":
++					  "  File: \"%N\"\n"
++					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					  "Device: %Dh/%dd\tInode: %-10i  Links: %h\n"
++					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					  "Access: %x\n" "Modify: %y\n" "Change: %z\n");
+ 			}
+ 		}
+-#else
++#elif ENABLE_SMACK
+ 		if (option_mask32 & OPT_TERSE) {
+-			format = (option_mask32 & OPT_SELINUX ?
++			format = (option_mask32 & OPT_SMACK ?
+ 				  "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o %C\n":
+ 				  "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o\n");
+ 		} else {
+ 			if (S_ISBLK(statbuf.st_mode) || S_ISCHR(statbuf.st_mode)) {
+-				format = (option_mask32 & OPT_SELINUX ?
++				format = (option_mask32 & OPT_SMACK ?
+ 					  "  File: \"%N\"\n"
+ 					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+ 					  "Device: %Dh/%dd\tInode: %-10i  Links: %-5h"
+ 					  " Device type: %t,%T\n"
+ 					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
+-					  "   S_Context: %C\n"
++					  "   Smack: %C\n"
+ 					  "Access: %x\n" "Modify: %y\n" "Change: %z\n":
+ 					  "  File: \"%N\"\n"
+ 					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+@@ -511,12 +616,12 @@ static bool do_stat(char const *filename
+ 					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
+ 					  "Access: %x\n" "Modify: %y\n" "Change: %z\n");
+ 			} else {
+-				format = (option_mask32 & OPT_SELINUX ?
++				format = (option_mask32 & OPT_SMACK ?
+ 					  "  File: \"%N\"\n"
+ 					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+ 					  "Device: %Dh/%dd\tInode: %-10i  Links: %h\n"
+ 					  "Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
+-					  "S_Context: %C\n"
++					  "Smack: %C\n"
+ 					  "Access: %x\n" "Modify: %y\n" "Change: %z\n":
+ 					  "  File: \"%N\"\n"
+ 					  "  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
+@@ -525,13 +630,46 @@ static bool do_stat(char const *filename
+ 					  "Access: %x\n" "Modify: %y\n" "Change: %z\n");
+ 			}
+ 		}
++#else
++		if (option_mask32 & OPT_TERSE) {
++			format = "%n %s %b %f %u %g %D %i %h %t %T %X %Y %Z %o";
++		} else {
++			if (S_ISBLK(statbuf.st_mode) || S_ISCHR(statbuf.st_mode)) {
++				format =
++					"  File: \"%N\"\n"
++					"  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					"Device: %Dh/%dd\tInode: %-10i  Links: %-5h"
++					" Device type: %t,%T\n"
++					"Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					"Access: %x\n" "Modify: %y\n" "Change: %z\n";
++			} else {
++				format =
++					"  File: \"%N\"\n"
++					"  Size: %-10s\tBlocks: %-10b IO Block: %-6o %F\n"
++					"Device: %Dh/%dd\tInode: %-10i  Links: %h\n"
++					"Access: (%04a/%10.10A)  Uid: (%5u/%8U)   Gid: (%5g/%8G)\n"
++					"Access: %x\n" "Modify: %y\n" "Change: %z\n";
++			}
++		}
+ #endif
++
+ 	}
+-	print_it(format, filename, print_stat, &statbuf USE_SELINUX(, scontext));
++#if ENABLE_SELINUX
++	print_it(format, filename, print_stat, &statbuf, scontext);
++#elif ENABLE_SMACK
++	print_it(format, filename, print_stat, &statbuf, smack);
++#else
++	print_it(format, filename, print_stat, &statbuf);
++#endif
++
+ #else	/* FEATURE_STAT_FORMAT */
+ 	if (option_mask32 & OPT_TERSE) {
+ 		printf("%s %ju %ju %lx %lu %lu %jx %ju %lu %lx %lx %lu %lu %lu %lu"
+-		       SKIP_SELINUX("\n"),
++#if !ENABLE_SELINUX && !ENABLE_SMACK
++		       "\n",
++#else
++		       "",
++#endif
+ 		       filename,
+ 		       (uintmax_t) (statbuf.st_size),
+ 		       (uintmax_t) statbuf.st_blocks,
+@@ -554,6 +692,12 @@ static bool do_stat(char const *filename
+ 		else
+ 			putchar('\n');
+ #endif
++#if ENABLE_SMACK
++		if (option_mask32 & OPT_SMACK)
++			printf(" %lc\n", smack[0]);
++		else
++			putchar('\n');
++#endif
+ 	} else {
+ 		char *linkname = NULL;
+ 
+@@ -597,6 +741,9 @@ static bool do_stat(char const *filename
+ #if ENABLE_SELINUX
+ 		printf("   S_Context: %lc\n", *scontext);
+ #endif
++#if ENABLE_SMACK
++		printf("   Smack: %lc\n", smack[0]);
++#endif
+ 		printf("Access: %s\n" "Modify: %s\n" "Change: %s\n",
+ 		       human_time(statbuf.st_atime),
+ 		       human_time(statbuf.st_mtime),
+@@ -616,6 +763,7 @@ int stat_main(int argc, char **argv)
+ 
+ 	getopt32(argv, "ftL"
+ 		USE_SELINUX("Z")
++		USE_SMACK("Z")
+ 		USE_FEATURE_STAT_FORMAT("c:", &format)
+ 	);
+ 
+diff -uprN busybox-1.7.2-base/include/applets.h busybox-1.7.2-smack/include/applets.h
+--- busybox-1.7.2-base/include/applets.h	2007-09-03 04:48:46.000000000 -0700
++++ busybox-1.7.2-smack/include/applets.h	2007-11-20 12:11:40.000000000 -0800
+@@ -242,6 +242,7 @@ USE_MV(APPLET(mv, _BB_DIR_BIN, _BB_SUID_
+ USE_NAMEIF(APPLET(nameif, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_NC(APPLET(nc, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_NETSTAT(APPLET(netstat, _BB_DIR_BIN, _BB_SUID_NEVER))
++USE_NEWSMACK(APPLET(newsmack, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
+ USE_NICE(APPLET(nice, _BB_DIR_BIN, _BB_SUID_NEVER))
+ USE_NMETER(APPLET(nmeter, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_NOHUP(APPLET(nohup, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+@@ -302,6 +303,9 @@ USE_FEATURE_SH_IS_MSH(APPLET_NOUSAGE(sh,
+ USE_SHA1SUM(APPLET_ODDNAME(sha1sum, md5_sha1_sum, _BB_DIR_USR_BIN, _BB_SUID_NEVER, sha1sum))
+ USE_SLATTACH(APPLET(slattach, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_SLEEP(APPLET_NOFORK(sleep, sleep, _BB_DIR_BIN, _BB_SUID_NEVER, sleep))
++USE_SMACKCIPSO(APPLET(smackcipso, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
++USE_SMACKENABLED(APPLET(smackenabled, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
++USE_SMACKLOAD(APPLET(smackload, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
+ USE_SOFTLIMIT(APPLET_ODDNAME(softlimit, chpst, _BB_DIR_USR_BIN, _BB_SUID_NEVER, softlimit))
+ USE_SORT(APPLET_NOEXEC(sort, sort, _BB_DIR_USR_BIN, _BB_SUID_NEVER, sort))
+ USE_SPLIT(APPLET(split, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+diff -uprN busybox-1.7.2-base/include/libbb.h busybox-1.7.2-smack/include/libbb.h
+--- busybox-1.7.2-base/include/libbb.h	2007-09-16 11:48:10.000000000 -0700
++++ busybox-1.7.2-smack/include/libbb.h	2007-11-20 12:34:05.000000000 -0800
+@@ -45,6 +45,10 @@
+ #include <selinux/context.h>
+ #endif
+ 
++#if ENABLE_SMACK
++#define	SMACKBUFFSIZE	24
++#endif
++
+ #if ENABLE_LOCALE_SUPPORT
+ #include <locale.h>
+ #else
+@@ -784,6 +788,10 @@ extern context_t set_security_context_co
+ 						char *user, char *role, char *type, char *range);
+ extern void setfscreatecon_or_die(security_context_t scontext);
+ #endif
++#if ENABLE_SMACK
++extern int smack_from_file(const char *path, char *result, int len, int follow);
++extern int smack_from_proc(const int, char *result, int len);
++#endif
+ extern void selinux_or_die(void);
+ extern int restricted_shell(const char *shell);
+ extern void setup_environment(const char *shell, int loginshell, int changeenv, const struct passwd *pw);
+@@ -889,6 +897,7 @@ typedef struct {
+ 	char *argv0;
+ 	/*char *exe;*/
+ 	USE_SELINUX(char *context;)
++	USE_SMACK(char context[SMACKBUFFSIZE];)
+ 	/* Everything below must contain no ptrs to malloc'ed data:
+ 	 * it is memset(0) for each process in procps_scan() */
+ 	unsigned vsz, rss; /* we round it to kbytes */
+@@ -924,6 +933,7 @@ enum {
+ 	PSSCAN_UTIME    = 1 << 13,
+ 	PSSCAN_TTY      = 1 << 14,
+ 	USE_SELINUX(PSSCAN_CONTEXT  = 1 << 15,)
++	USE_SMACK(PSSCAN_CONTEXT  = 1 << 15,)
+ 	/* These are all retrieved from proc/NN/stat in one go: */
+ 	PSSCAN_STAT     = PSSCAN_PPID | PSSCAN_PGID | PSSCAN_SID
+ 	                | PSSCAN_COMM | PSSCAN_STATE
+diff -uprN busybox-1.7.2-base/include/usage.h busybox-1.7.2-smack/include/usage.h
+--- busybox-1.7.2-base/include/usage.h	2007-09-03 04:48:46.000000000 -0700
++++ busybox-1.7.2-smack/include/usage.h	2007-11-20 13:17:10.000000000 -0800
+@@ -1391,6 +1391,9 @@
+ 	USE_SELINUX( \
+        "	-Z	prints only the security context\n" \
+ 	) \
++	USE_SMACK( \
++       "	-Z	prints only the security label\n" \
++	) \
+        "	-g	Prints only the group ID\n" \
+        "	-u	Prints only the user ID\n" \
+        "	-n	Print a name instead of a number\n" \
+@@ -2456,6 +2459,11 @@
+      "\n	-W	Display with no column truncation" \
+ 	)
+ 
++#define newsmack_trivial_usage \
++       "label [COMMAND [ARG] ...]"
++#define newsmack_full_usage \
++       "Run a program or shell with the specified Smack label" \
++
+ #define nice_trivial_usage \
+        "[-n ADJUST] [COMMAND [ARG] ...]"
+ #define nice_full_usage \
+@@ -2668,7 +2676,7 @@
+ 
+ #else /* !ENABLE_DESKTOP */
+ 
+-#if !defined CONFIG_SELINUX && !ENABLE_FEATURE_PS_WIDE
++#if !defined CONFIG_SELINUX && !ENABLE_FEATURE_PS_WIDE && !defined CONFIG_SMACK
+ #define USAGE_PS "\nThis version of ps accepts no options"
+ #else
+ #define USAGE_PS "\nOptions:"
+@@ -2681,6 +2689,8 @@
+ 	USAGE_PS \
+ 	USE_SELINUX( \
+        "\n	-Z	Show SE Linux context") \
++	USE_SMACK( \
++       "\n	-Z	Show Smack label") \
+ 	USE_FEATURE_PS_WIDE( \
+        "\n	w	Wide output")
+ 
+@@ -3081,6 +3091,17 @@ USE_FEATURE_RUN_PARTS_FANCY("\n	-l	Print
+        "$ sleep 1d 3h 22m 8s\n" \
+        "[98528 second delay results]\n")
+ 
++#define smackcipso_trivial_usage
++#define smackcipso_full_usage \
++       "Read and set Smack CIPSO mappings from the standard input"
++
++#define smackenabled_trivial_usage
++#define smackenabled_full_usage
++
++#define smackload_trivial_usage
++#define smackload_full_usage \
++       "Read and set Smack access rules from the standard input"
++
+ #define sort_trivial_usage \
+        "[-nru" \
+ 	USE_FEATURE_SORT_BIG("gMcszbdfimSTokt] [-o outfile] [-k start[.offset][opts][,end[.offset][opts]] [-t char") \
+@@ -3174,6 +3195,9 @@ USE_FEATURE_RUN_PARTS_FANCY("\n	-l	Print
+ 	USE_SELINUX( \
+        "\n	-Z	Print security context" \
+ 	) \
++	USE_SMACK( \
++       "\n	-Z	Print Smack label" \
++	) \
+ 	USE_FEATURE_STAT_FORMAT( \
+        "\n\nValid format sequences for files:\n" \
+        " %a	Access rights in octal\n" \
+@@ -3211,6 +3235,9 @@ USE_FEATURE_RUN_PARTS_FANCY("\n	-l	Print
+ 	USE_SELINUX( \
+        " %C	Security context in SELinux\n" \
+ 	) \
++	USE_SMACK( \
++       " %C	Smack label\n" \
++	) \
+        " %i	File System ID in hex\n" \
+        " %l	Maximum length of filenames\n" \
+        " %n	File name\n" \
+diff -uprN busybox-1.7.2-base/libbb/Kbuild busybox-1.7.2-smack/libbb/Kbuild
+--- busybox-1.7.2-base/libbb/Kbuild	2007-09-03 04:48:41.000000000 -0700
++++ busybox-1.7.2-smack/libbb/Kbuild	2007-11-12 17:23:05.000000000 -0800
+@@ -112,6 +112,7 @@ lib-$(CONFIG_LOGIN) += correct_password.
+ lib-$(CONFIG_DF) += find_mount_point.o
+ lib-$(CONFIG_MKFS_MINIX) += find_mount_point.o
+ lib-$(CONFIG_SELINUX) += selinux_common.o
++lib-$(CONFIG_SMACK) += smack_common.o
+ 
+ # We shouldn't build xregcomp.c if we don't need it - this ensures we don't
+ # require regex.h to be in the include dir even if we don't need it thereby
+diff -uprN busybox-1.7.2-base/libbb/procps.c busybox-1.7.2-smack/libbb/procps.c
+--- busybox-1.7.2-base/libbb/procps.c	2007-09-03 04:48:41.000000000 -0700
++++ busybox-1.7.2-smack/libbb/procps.c	2007-11-19 14:58:34.000000000 -0800
+@@ -173,6 +173,12 @@ procps_status_t *procps_scan(procps_stat
+ 				sp->context = NULL;
+ 		}
+ #endif
++#if ENABLE_SMACK
++		if (flags & PSSCAN_CONTEXT) {
++			if (smack_from_proc(sp->pid, sp->context, SMACKBUFFSIZE) < 0)
++				strcpy(sp->context, "?");
++		}
++#endif
+ 
+ 		filename_tail = filename + sprintf(filename, "/proc/%d", pid);
+ 
+diff -uprN busybox-1.7.2-base/libbb/smack_common.c busybox-1.7.2-smack/libbb/smack_common.c
+--- busybox-1.7.2-base/libbb/smack_common.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/libbb/smack_common.c	2007-11-20 13:12:15.000000000 -0800
+@@ -0,0 +1,42 @@
++/*
++ * libbb/smack_common.c
++ *   -- common Smack utility functions
++ *
++ * Copyright 2007 Casey Schaufler <casey@schaufler-ca.com>
++ */
++#include "libbb.h"
++#include <attr/xattr.h>
++
++#define	SMACKATTR	"security.SMACK64"
++#define	SMACKPROCFMT	"/proc/%d/."
++
++int smack_from_file(const char *path, char *result, int len, int follow)
++{
++	char buffer[SMACKBUFFSIZE];
++	int rc;
++
++	if (follow)
++		rc = getxattr(path, SMACKATTR, buffer, SMACKBUFFSIZE - 1);
++	else
++		rc = lgetxattr(path, SMACKATTR, buffer, SMACKBUFFSIZE - 1);
++
++	if (rc < 0)
++		return rc;
++
++	buffer[rc] = '\0';
++	if (strlen(buffer) > len)
++		return -EINVAL;
++
++	strcpy(result, buffer);
++	return rc;
++}
++
++int smack_from_proc(const int pid, char *result, int len)
++{
++	char path[20];
++	int p;
++
++	p = (pid < 0) ? getpid() : pid;
++	sprintf(path, SMACKPROCFMT, p);
++	return smack_from_file(path, result, len, 1);
++}
+diff -uprN busybox-1.7.2-base/Makefile busybox-1.7.2-smack/Makefile
+--- busybox-1.7.2-base/Makefile	2007-09-29 16:54:25.000000000 -0700
++++ busybox-1.7.2-smack/Makefile	2007-10-11 00:10:01.000000000 -0700
+@@ -449,6 +449,7 @@ libs-y		:= \
+ 		procps/ \
+ 		runit/ \
+ 		selinux/ \
++		smack/ \
+ 		shell/ \
+ 		sysklogd/ \
+ 		util-linux/ \
+diff -uprN busybox-1.7.2-base/procps/ps.c busybox-1.7.2-smack/procps/ps.c
+--- busybox-1.7.2-base/procps/ps.c	2007-09-03 04:48:55.000000000 -0700
++++ busybox-1.7.2-smack/procps/ps.c	2007-11-19 15:09:38.000000000 -0800
+@@ -80,6 +80,13 @@ static void func_label(char *buf, int si
+ }
+ #endif
+ 
++#if ENABLE_SMACK
++static void func_label(char *buf, int size, const procps_status_t *ps)
++{
++	safe_strncpy(buf, ps->context[0] ? ps->context : "?", size+1);
++}
++#endif
++
+ /*
+ static void func_nice(char *buf, int size, const procps_status_t *ps)
+ {
+@@ -131,12 +138,22 @@ static const ps_out_t out_spec[] = {
+ #if ENABLE_SELINUX
+ 	{ 35                 , "label" ,"LABEL"  ,func_label ,PSSCAN_CONTEXT },
+ #endif
++#if ENABLE_SMACK
++	{ 24                 , "label" ,"LABEL"  ,func_label ,PSSCAN_CONTEXT },
++#endif
+ };
+ 
+ #if ENABLE_SELINUX
+ #define SELINIX_O_PREFIX "label,"
+ #define DEFAULT_O_STR    SELINIX_O_PREFIX "pid,user" /* TODO: ,vsz,stat */ ",args"
+-#else
++#endif
++
++#if ENABLE_SMACK
++#define SMACK_O_PREFIX "label,"
++#define DEFAULT_O_STR    SMACK_O_PREFIX "pid,user" /* TODO: ,vsz,stat */ ",args"
++#endif
++
++#if !ENABLE_SELINUX && !ENABLE_SMACK
+ #define DEFAULT_O_STR    "pid,user" /* TODO: ,vsz,stat */ ",args"
+ #endif
+ 
+@@ -284,6 +301,7 @@ int ps_main(int argc, char **argv)
+ 	procps_status_t *p;
+ 	llist_t* opt_o = NULL;
+ 	USE_SELINUX(int opt;)
++	USE_SMACK(int opt;)
+ 
+ 	// POSIX:
+ 	// -a  Write information for all processes associated with terminals
+@@ -297,7 +315,13 @@ int ps_main(int argc, char **argv)
+ 	//     Select which columns to display
+ 	/* We allow (and ignore) most of the above. FIXME */
+ 	opt_complementary = "o::";
+-	USE_SELINUX(opt =) getopt32(argv, "Zo:aAdefl", &opt_o);
++#if ENABLE_SELINUX
++	opt = getopt32(argv, "Zo:aAdefl", &opt_o);
++#elif ENABLE_SMACK
++	opt = getopt32(argv, "Zo:aAdefl", &opt_o);
++#else
++	getopt32(argv, "Zo:aAdefl", &opt_o);
++#endif
+ 	if (opt_o) {
+ 		do {
+ 			parse_o(opt_o->data);
+@@ -311,6 +335,12 @@ int ps_main(int argc, char **argv)
+ 			strcpy(default_o, DEFAULT_O_STR + sizeof(SELINIX_O_PREFIX)-1);
+ 		} else
+ #endif
++#if ENABLE_SMACK
++		if (!(opt & 1)) {
++			/* no -Z : do not show LABEL */
++			strcpy(default_o, DEFAULT_O_STR + sizeof(SMACK_O_PREFIX)-1);
++		} else
++#endif
+ 		{
+ 			strcpy(default_o, DEFAULT_O_STR);
+ 		}
+@@ -347,6 +377,8 @@ int ps_main(int argc, char **argv)
+ 	int len;
+ 	SKIP_SELINUX(const) int use_selinux = 0;
+ 	USE_SELINUX(int i;)
++	SKIP_SMACK(const) int use_smack = 0;
++	USE_SMACK(int i;)
+ #if !ENABLE_FEATURE_PS_WIDE
+ 	enum { terminal_width = 79 };
+ #else
+@@ -378,8 +410,16 @@ int ps_main(int argc, char **argv)
+ #endif
+ #endif /* ENABLE_FEATURE_PS_WIDE || ENABLE_SELINUX */
+ 
++#if ENABLE_SMACK
++	i = getopt32(argv, "Z");
++	if (i & 1)
++		use_smack = PSSCAN_CONTEXT;
++#endif
++
+ 	if (use_selinux)
+ 		puts("  PID Context                          Stat Command");
++	if (use_smack)
++		puts("  PID Context                  Stat Command");
+ 	else
+ 		puts("  PID  Uid        VSZ Stat Command");
+ 
+@@ -390,6 +430,7 @@ int ps_main(int argc, char **argv)
+ 			| PSSCAN_VSZ
+ 			| PSSCAN_COMM
+ 			| use_selinux
++			| use_smack
+ 	))) {
+ #if ENABLE_SELINUX
+ 		if (use_selinux) {
+@@ -399,6 +440,14 @@ int ps_main(int argc, char **argv)
+ 					p->state);
+ 		} else
+ #endif
++#if ENABLE_SMACK
++		if (use_smack) {
++			len = printf("%5u %-24s %s ",
++					p->pid,
++					p->context[0] ? p->context : "?",
++					p->state);
++		} else
++#endif
+ 		{
+ 			const char *user = get_cached_username(p->uid);
+ 			if (p->vsz == 0)
+diff -uprN busybox-1.7.2-base/smack/Config.in busybox-1.7.2-smack/smack/Config.in
+--- busybox-1.7.2-base/smack/Config.in	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/Config.in	2007-11-20 12:02:40.000000000 -0800
+@@ -0,0 +1,38 @@
++#
++# For a description of the syntax of this configuration file,
++# see scripts/kbuild/config-language.txt.
++#
++
++menu "Smack Utilities"
++	depends on SMACK
++
++config SMACKLOAD
++	bool "smackload"
++	default n
++	depends on SMACK
++	help
++	  Enable support to load Smack access rules.
++
++config SMACKCIPSO
++	bool "smackcipso"
++	default n
++	depends on SMACK
++	help
++	  Enable support to specify Smack CIPSO mappings.
++
++config NEWSMACK
++	bool "newsmack"
++	default n
++	depends on SMACK
++	help
++	  Enable support to run command with specified Smack label.
++
++config SMACKENABLED
++	bool "smackenabled"
++	default n
++	depends on SMACK
++	help
++	  Enable support for this command to be used within shell scripts
++	  to determine if smack is enabled.
++
++endmenu
+diff -uprN busybox-1.7.2-base/smack/Kbuild busybox-1.7.2-smack/smack/Kbuild
+--- busybox-1.7.2-base/smack/Kbuild	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/Kbuild	2007-11-20 12:02:02.000000000 -0800
+@@ -0,0 +1,12 @@
++# Makefile for busybox
++#
++# Copyright (C) 1999-2005 by Erik Andersen <andersen@codepoet.org>
++# Copyright (C) 2007 by KaiGai Kohei <kaigai@kaigai.gr.jp>
++#
++# Licensed under the GPL v2, see the file LICENSE in this tarball.
++
++lib-y:=
++lib-$(CONFIG_NEWSMACK)		+= newsmack.o
++lib-$(CONFIG_SMACKLOAD)		+= smackload.o
++lib-$(CONFIG_SMACKCIPSO)	+= smackcipso.o
++lib-$(CONFIG_SMACKENABLED)	+= smackenabled.o
+diff -uprN busybox-1.7.2-base/smack/newsmack.c busybox-1.7.2-smack/smack/newsmack.c
+--- busybox-1.7.2-base/smack/newsmack.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/newsmack.c	2007-11-20 11:30:06.000000000 -0800
+@@ -0,0 +1,59 @@
++/*
++ * newsmack label [ command [ arg ] ... ]
++ *
++ * Port to busybox: Casey Schaufler <casey@schaufler-ca.com>
++ *
++ * Copyright (C) 2007 Casey Schaufler <casey@schaufler-ca.com>
++ *
++ */
++
++#include "libbb.h"
++
++int newsmack_main(int argc, char **argv);
++int newsmack_main(int argc, char **argv)
++{
++	const char *selfish = "/proc/self/attr/current";
++	char *newargv[256]; /* yes, I know */
++	char *smack;
++	int fd;
++	int i;
++	int newargc;
++
++	if (argc <= 1)
++		bb_error_msg_and_die("No smack value specified");
++
++	smack = argv[1];
++
++	/*
++	 * Start a shell if no command is specified
++	 */
++	if (argc == 2) {
++		fprintf(stderr, "%s: start a shell at \"%s\"\n",
++			argv[0], smack);
++		newargv[0] = strdup("sh");
++		newargv[1] = NULL;
++	} else {
++		for (newargc = 0, i = 2; i < argc; newargc++, i++)
++			newargv[newargc] = argv[i];
++		newargv[newargc] = NULL;
++	}
++
++	/*
++	 * Set the process label.
++	 */
++	if ((fd = open(selfish, O_RDWR)) < 0)
++		bb_error_msg_and_die("cannot open to set smack");
++
++
++	i = write(fd, smack, strlen(smack));
++	close(fd);
++	if (i < 0)
++		bb_error_msg_and_die("cannot write to set smack");
++
++	/*
++	 * Do the exec
++	 */
++	execvp(newargv[0], newargv);
++
++	bb_error_msg_and_die("%s: exec failure.", newargv[0]);
++}
+diff -uprN busybox-1.7.2-base/smack/smackcipso.c busybox-1.7.2-smack/smack/smackcipso.c
+--- busybox-1.7.2-base/smack/smackcipso.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackcipso.c	2007-11-20 11:51:18.000000000 -0800
+@@ -0,0 +1,119 @@
++/*
++ * smackcipso - properly format smack access cipsos for
++ * loading into the kernel by writing to /smack/cipso.
++ *
++ * Copyright (C) 2007 Casey Schaufler <casey@schaufler-ca.com>
++ *
++ *	This program is free software; you can redistribute it and/or modify
++ *	it under the terms of the GNU General Public License as published by
++ *	the Free Software Foundation, version 2.
++ *
++ * Authors:
++ *	Casey Schaufler <casey@schaufler-ca.com>
++ *	Ahmed S. Darwish <darwish.07@gmail.com>
++ *
++ */
++/*
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <ctype.h>
++*/
++#include "libbb.h"
++
++#define LSIZE 23
++#define NSIZE 4
++#define MAXCATNUM 239
++#define MAXCATVAL 63
++#define MAXLEVEL 255
++
++int smackcipso_main(int argc, char **argv);
++int smackcipso_main(int argc, char **argv)
++{
++	int status = EXIT_SUCCESS;
++	int cipsofd;
++	char line[512];
++	char cipso[LSIZE + NSIZE + NSIZE + (NSIZE * MAXCATNUM)];
++	char cats[MAXCATNUM+1][NSIZE+1];
++	char *cp;
++	int level;
++	int cat;
++	int catcount;
++	int i;
++	int err;
++
++	cipsofd = open("/smack/cipso", O_RDWR);
++	if (cipsofd < 0)
++		bb_error_msg_and_die("failed opening /smack/cipso");
++
++	while (fgets(line, sizeof(line), stdin) != NULL) {
++		catcount = 0;
++		err = 0;
++
++		if ((cp = strchr(line, '\n')) == NULL) {
++			fprintf(stderr, "missing newline \"%s\"\n", line);
++			continue;
++		}
++		*cp = '\0';
++		cp = strtok(line, " \t");
++		if (cp == NULL) {
++			fprintf(stderr, "Empty line: \"%s\"\n", line);
++			continue;
++		}
++		sprintf(cipso, "%-23s ", line);
++		if (strlen(cipso) != 24) {
++			fprintf(stderr, "Bad label starting: \"%s\"\n", line);
++			continue;
++		}
++		cp = strtok(NULL, " \t");
++		if (cp == NULL) {
++			fprintf(stderr, "Missing level: \"%s\"\n", line);
++			continue;
++		}
++		if (!isdigit(*cp)) {
++			fprintf(stderr, "Bad level: \"%s\"\n", cp);
++			continue;
++		}
++		level = atoi(cp);
++		if (level > MAXLEVEL) {
++			fprintf(stderr, "Bad level: \"%s\"\n", cp);
++			continue;
++		}
++		sprintf(cipso+LSIZE+1, "%-4d", level);
++
++		cp = strtok(NULL, " \t");
++		for (i = 0; cp != NULL; cp = strtok(NULL, " \t"), i++) {
++			if (!isdigit(*cp)) {
++				fprintf(stderr, "Bad category \"%s\"\n", cp);
++				err = 1;
++				break;
++			}
++			cat = atoi(cp);
++			if (i >= MAXCATNUM) {
++				fprintf(stderr, "Maximum number of categories"
++					"exceeded \"%d\"\n", i);
++				err = 1;
++				break;
++			}
++			if (cat > MAXCATVAL) {
++				fprintf(stderr, "Bad category \"%s\"\n", cp);
++				err = 1;
++				break;
++			}
++			sprintf(cats[i], "%-4d", cat);
++		}
++		if (err)
++			continue;
++
++		sprintf(cipso+LSIZE+1+NSIZE, "%-4d", i);
++		while (i > 0)
++			strcat(cipso, cats[--i]);
++		err = write(cipsofd, cipso, strlen(cipso));
++		if (err < 0)
++			perror("writing /smack/cipso");
++	}
++	return status;
++}
+diff -uprN busybox-1.7.2-base/smack/smackenabled.c busybox-1.7.2-smack/smack/smackenabled.c
+--- busybox-1.7.2-base/smack/smackenabled.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackenabled.c	2007-11-20 12:33:49.000000000 -0800
+@@ -0,0 +1,17 @@
++/*
++ * smackenabled
++ *
++ * Port to BusyBox  Casey Schaufler <casey@schaufler-ca.com
++ *
++ */
++#include "libbb.h"
++
++int smackenabled_main(int argc, char **argv);
++int smackenabled_main(int argc, char **argv)
++{
++	char buffer[80];
++
++	if (smack_from_file("/", buffer, sizeof(buffer), 0) < 0)
++		return 0;
++	return 1;
++}
+diff -uprN busybox-1.7.2-base/smack/smackload.c busybox-1.7.2-smack/smack/smackload.c
+--- busybox-1.7.2-base/smack/smackload.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackload.c	2007-11-20 11:42:33.000000000 -0800
+@@ -0,0 +1,93 @@
++/*
++ * smackload - properly format smack access rules for
++ * loading into the kernel by writing to /smack/load.
++ *
++ * Copyright (C) 2007 Casey Schaufler <casey@schaufler-ca.com>
++ *
++ *	This program is free software; you can redistribute it and/or modify
++ *	it under the terms of the GNU General Public License as published by
++ *	the Free Software Foundation, version 2.
++ *
++ * Author:
++ *	Casey Schaufler <casey@schaufler-ca.com>
++ */
++/*
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++*/
++#include "libbb.h"
++
++#define LSIZE 23
++#define ASIZE 4
++
++int smackload_main(int argc, char **argv);
++int smackload_main(int argc, char **argv)
++{
++	int status = EXIT_SUCCESS;
++	int loadfd;
++	char line[80];
++	char rule[LSIZE + LSIZE + ASIZE + 3];
++	char subject[LSIZE+1];
++	char object[LSIZE+1];
++	char accesses[ASIZE+1];
++	char real[ASIZE+1];
++	char *cp;
++	int i;
++	int err;
++
++	loadfd = open("/smack/load", O_RDWR);
++	if (loadfd < 0)
++		bb_error_msg_and_die("failed opening /smack/load");
++
++	while (fgets(line, 80, stdin) != NULL) {
++		err = 0;
++		if ((cp = strchr(line, '\n')) != NULL)
++			*cp = '\0';
++		if (sscanf(line,"%23s %23s %4s",subject,object,accesses) != 3) 
++			err = 1;
++		else {
++			strcpy(real, "----");
++			for (i = 0;
++			     i < ASIZE && accesses[i] != '\0' && err == 0;
++			     i++) {
++				switch (accesses[i]) {
++				case 'r':
++				case 'R':
++					real[0] = 'r';
++					break;
++				case 'w':
++				case 'W':
++					real[1] = 'w';
++					break;
++				case 'x':
++				case 'X':
++					real[2] = 'x';
++					break;
++				case 'a':
++				case 'A':
++					real[3] = 'a';
++					break;
++				case '\0':
++				case '-':
++					break;
++				default:
++					err = 1;
++					break;
++				}
++			}
++		}
++		if (err == 0) {
++			sprintf(rule, "%-23s %-23s %4s", subject,object,real);
++			err = write(loadfd, rule, LSIZE + LSIZE + ASIZE + 2);
++			if (err < 0)
++				perror("writing /smack/load");
++		}
++		else
++			fprintf(stderr, "Bad input line \"%s\"\n", line);
++	}
++	return status;
++}
