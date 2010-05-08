@@ -5,12 +5,12 @@
 # Copyright (c) 2007 Casey Schaufler <casey@schaufler-ca.com>
 #
 
-PROGRAMS = smackload smackcipso
+PROGRAMS = smackload smackcipso smackpolyport
 
 STATICLIB = libsmack.a
 
-LIBSMACKSRC = smackrecvmsg.c
-LIBSMACKOBJ = smackrecvmsg.o
+LIBSMACKSRC = smackrecvmsg.c smackaccess.c smackpolyport.c
+LIBSMACKOBJ = smackrecvmsg.o smackaccess.o
 
 default: ${PROGRAMS} ${STATICLIB}
 

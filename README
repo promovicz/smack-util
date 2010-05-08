@@ -52,7 +52,13 @@ smackrecvmsg.c
 
 A handy function that acts like recvmsg() but that passes back
 the Smack label on the message, assuming all required setup has
-been done. The sole contents of libsmack.a so far.
+been done. In libsmack.a.
+
+smackaccess.c
+
+Userspace function that reports what the kernel would for
+an access request. Reads rules from /smack/load once, remembering
+what it got for subsequent calls in the process. In libsmack.a.
 
 Makefile
 

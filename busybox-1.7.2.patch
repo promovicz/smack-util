@@ -1,6 +1,6 @@
-diff -uprN busybox-1.7.2-base/Config.in busybox-1.7.2-smack/Config.in
---- busybox-1.7.2-base/Config.in	2007-09-03 04:48:58.000000000 -0700
-+++ busybox-1.7.2-smack/Config.in	2007-10-11 02:04:53.000000000 -0700
+diff -uprN busybox-1.7.2/Config.in busybox-1.7.2-smack/Config.in
+--- busybox-1.7.2/Config.in	2007-09-03 04:48:58.000000000 -0700
++++ busybox-1.7.2-smack/Config.in	2008-05-27 21:33:33.000000000 -0700
 @@ -222,6 +222,13 @@ config SELINUX
  
  	  Most people will leave this set to 'N'.
@@ -21,9 +21,9 @@ diff -uprN busybox-1.7.2-base/Config.in busybox-1.7.2-smack/Config.in
  source selinux/Config.in
 +source smack/Config.in
  source ipsvd/Config.in
-diff -uprN busybox-1.7.2-base/coreutils/id.c busybox-1.7.2-smack/coreutils/id.c
---- busybox-1.7.2-base/coreutils/id.c	2007-09-03 04:48:40.000000000 -0700
-+++ busybox-1.7.2-smack/coreutils/id.c	2007-11-19 15:57:52.000000000 -0800
+diff -uprN busybox-1.7.2/coreutils/id.c busybox-1.7.2-smack/coreutils/id.c
+--- busybox-1.7.2/coreutils/id.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/id.c	2008-05-27 21:33:33.000000000 -0700
 @@ -22,6 +22,9 @@
  #if ENABLE_SELINUX
  #define JUST_CONTEXT     16
@@ -103,9 +103,9 @@ diff -uprN busybox-1.7.2-base/coreutils/id.c busybox-1.7.2-smack/coreutils/id.c
  
  	putchar('\n');
  	fflush_stdout_and_exit(status);
-diff -uprN busybox-1.7.2-base/coreutils/ls.c busybox-1.7.2-smack/coreutils/ls.c
---- busybox-1.7.2-base/coreutils/ls.c	2007-09-03 04:48:40.000000000 -0700
-+++ busybox-1.7.2-smack/coreutils/ls.c	2007-11-20 12:33:32.000000000 -0800
+diff -uprN busybox-1.7.2/coreutils/ls.c busybox-1.7.2-smack/coreutils/ls.c
+--- busybox-1.7.2/coreutils/ls.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/ls.c	2008-05-27 21:33:33.000000000 -0700
 @@ -66,12 +66,12 @@ LIST_EXEC       = 1 << 14,
  LIST_MASK       = (LIST_EXEC << 1) - 1,
  
@@ -244,9 +244,9 @@ diff -uprN busybox-1.7.2-base/coreutils/ls.c busybox-1.7.2-smack/coreutils/ls.c
  	(1U<<31)
  };
  
-diff -uprN busybox-1.7.2-base/coreutils/stat.c busybox-1.7.2-smack/coreutils/stat.c
---- busybox-1.7.2-base/coreutils/stat.c	2007-09-03 04:48:40.000000000 -0700
-+++ busybox-1.7.2-smack/coreutils/stat.c	2007-11-20 13:24:05.000000000 -0800
+diff -uprN busybox-1.7.2/coreutils/stat.c busybox-1.7.2-smack/coreutils/stat.c
+--- busybox-1.7.2/coreutils/stat.c	2007-09-03 04:48:40.000000000 -0700
++++ busybox-1.7.2-smack/coreutils/stat.c	2008-06-02 10:24:25.000000000 -0700
 @@ -20,6 +20,7 @@
  #define OPT_TERSE		(1<<1)
  #define OPT_DEREFERENCE	(1<<2)
@@ -403,7 +403,7 @@ diff -uprN busybox-1.7.2-base/coreutils/stat.c busybox-1.7.2-smack/coreutils/sta
 +			  "Block size: %-10s\n"
 +			  "Blocks: Total: %-10b Free: %-10f Available: %a\n"
 +			  "Inodes: Total: %-10c Free: %d");
-+	print_it(format, filename, print_statfs, &statfsbuf, scontext);
++	print_it(format, filename, print_statfs, &statfsbuf);
  #endif /* SELINUX */
 +
  #else /* FEATURE_STAT_FORMAT */
@@ -663,9 +663,76 @@ diff -uprN busybox-1.7.2-base/coreutils/stat.c busybox-1.7.2-smack/coreutils/sta
  		USE_FEATURE_STAT_FORMAT("c:", &format)
  	);
  
-diff -uprN busybox-1.7.2-base/include/applets.h busybox-1.7.2-smack/include/applets.h
---- busybox-1.7.2-base/include/applets.h	2007-09-03 04:48:46.000000000 -0700
-+++ busybox-1.7.2-smack/include/applets.h	2007-11-20 12:11:40.000000000 -0800
+diff -uprN busybox-1.7.2/findutils/Config.in busybox-1.7.2-smack/findutils/Config.in
+--- busybox-1.7.2/findutils/Config.in	2007-09-03 04:48:54.000000000 -0700
++++ busybox-1.7.2-smack/findutils/Config.in	2008-06-02 09:54:01.000000000 -0700
+@@ -167,7 +167,7 @@ config FEATURE_FIND_REGEX
+ config FEATURE_FIND_CONTEXT
+ 	bool "Enable (-context) option for matching security context"
+ 	default n
+-	depends on FIND && SELINUX
++	depends on FIND && (SELINUX || SMACK)
+ 	help
+ 	  Support the 'find -context' option for matching security context.
+ 
+diff -uprN busybox-1.7.2/findutils/find.c busybox-1.7.2-smack/findutils/find.c
+--- busybox-1.7.2/findutils/find.c	2007-09-29 16:54:12.000000000 -0700
++++ busybox-1.7.2-smack/findutils/find.c	2008-06-02 10:02:40.000000000 -0700
+@@ -88,7 +88,12 @@ USE_FEATURE_FIND_NEWER(  ACTS(newer, tim
+ USE_FEATURE_FIND_INUM(   ACTS(inum,  ino_t inode_num;))
+ USE_FEATURE_FIND_USER(   ACTS(user,  uid_t uid;))
+ USE_FEATURE_FIND_SIZE(   ACTS(size,  char size_char; off_t size;))
++#if ENABLE_SELINUX
+ USE_FEATURE_FIND_CONTEXT(ACTS(context, security_context_t context;))
++#endif
++#if ENABLE_SMACK
++USE_FEATURE_FIND_CONTEXT(ACTS(context, char context[SMACKBUFFSIZE];))
++#endif
+ USE_FEATURE_FIND_PAREN(  ACTS(paren, action ***subexpr;))
+ USE_FEATURE_FIND_PRUNE(  ACTS(prune))
+ USE_FEATURE_FIND_DELETE( ACTS(delete))
+@@ -354,6 +359,14 @@ ACTF(delete)
+ #if ENABLE_FEATURE_FIND_CONTEXT
+ ACTF(context)
+ {
++#if ENABLE_SMACK
++	char smack[SMACKBUFFSIZE];
++
++	if (smack_from_file(fileName, smack, SMACKBUFFSIZE,
++						(recurse_flags & ACTION_FOLLOWLINKS) ? 1 : 0) < 0)
++		return FALSE;
++	return strcmp(ap->context, smack) == 0;
++#else
+ 	security_context_t con;
+ 	int rc;
+ 
+@@ -367,6 +380,7 @@ ACTF(context)
+ 	rc = strcmp(ap->context, con);
+ 	freecon(con);
+ 	return rc == 0;
++#endif
+ }
+ #endif
+ 
+@@ -777,10 +791,15 @@ static action*** parse_params(char **arg
+ 		else if (parm == PARM_context) {
+ 			action_context *ap;
+ 			ap = ALLOC_ACTION(context);
++#if ENABLE_SELINUX
+ 			ap->context = NULL;
+ 			/* SELinux headers erroneously declare non-const parameter */
+ 			if (selinux_raw_to_trans_context((char*)arg1, &ap->context))
+ 				bb_perror_msg("%s", arg1);
++#endif
++#if ENABLE_SMACK
++			strcpy(ap->context, arg1);
++#endif
+ 		}
+ #endif
+ 		else {
+diff -uprN busybox-1.7.2/include/applets.h busybox-1.7.2-smack/include/applets.h
+--- busybox-1.7.2/include/applets.h	2007-09-03 04:48:46.000000000 -0700
++++ busybox-1.7.2-smack/include/applets.h	2008-05-27 21:33:33.000000000 -0700
 @@ -242,6 +242,7 @@ USE_MV(APPLET(mv, _BB_DIR_BIN, _BB_SUID_
  USE_NAMEIF(APPLET(nameif, _BB_DIR_SBIN, _BB_SUID_NEVER))
  USE_NC(APPLET(nc, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
@@ -684,32 +751,40 @@ diff -uprN busybox-1.7.2-base/include/applets.h busybox-1.7.2-smack/include/appl
  USE_SOFTLIMIT(APPLET_ODDNAME(softlimit, chpst, _BB_DIR_USR_BIN, _BB_SUID_NEVER, softlimit))
  USE_SORT(APPLET_NOEXEC(sort, sort, _BB_DIR_USR_BIN, _BB_SUID_NEVER, sort))
  USE_SPLIT(APPLET(split, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
-diff -uprN busybox-1.7.2-base/include/libbb.h busybox-1.7.2-smack/include/libbb.h
---- busybox-1.7.2-base/include/libbb.h	2007-09-16 11:48:10.000000000 -0700
-+++ busybox-1.7.2-smack/include/libbb.h	2007-11-20 12:34:05.000000000 -0800
-@@ -45,6 +45,10 @@
+diff -uprN busybox-1.7.2/include/libbb.h busybox-1.7.2-smack/include/libbb.h
+--- busybox-1.7.2/include/libbb.h	2007-09-16 11:48:10.000000000 -0700
++++ busybox-1.7.2-smack/include/libbb.h	2008-05-30 10:37:19.000000000 -0700
+@@ -45,6 +45,13 @@
  #include <selinux/context.h>
  #endif
  
 +#if ENABLE_SMACK
 +#define	SMACKBUFFSIZE	24
++#define SMACKATTR		"security.SMACK64"
++#define SMACKFLOOR		"_"
++#define SMACKSTAR		"*"
 +#endif
 +
  #if ENABLE_LOCALE_SUPPORT
  #include <locale.h>
  #else
-@@ -784,6 +788,10 @@ extern context_t set_security_context_co
+@@ -784,6 +791,15 @@ extern context_t set_security_context_co
  						char *user, char *role, char *type, char *range);
  extern void setfscreatecon_or_die(security_context_t scontext);
  #endif
 +#if ENABLE_SMACK
 +extern int smack_from_file(const char *path, char *result, int len, int follow);
-+extern int smack_from_proc(const int, char *result, int len);
++extern int smack_from_proc(const int pid, char *result, int len);
++extern int smack_to_file(const char *path, const char *smack, int follow);
++extern int smack_to_proc(const int pid, const char *smack);
++extern int smack_user_default(const char *user, char *result, int len);
++extern int smack_user_allowed(const char *user, const char *smack);
++extern int smack_user_add(const char *user, const char *smack);
 +#endif
  extern void selinux_or_die(void);
  extern int restricted_shell(const char *shell);
  extern void setup_environment(const char *shell, int loginshell, int changeenv, const struct passwd *pw);
-@@ -889,6 +897,7 @@ typedef struct {
+@@ -889,6 +905,7 @@ typedef struct {
  	char *argv0;
  	/*char *exe;*/
  	USE_SELINUX(char *context;)
@@ -717,7 +792,7 @@ diff -uprN busybox-1.7.2-base/include/libbb.h busybox-1.7.2-smack/include/libbb.
  	/* Everything below must contain no ptrs to malloc'ed data:
  	 * it is memset(0) for each process in procps_scan() */
  	unsigned vsz, rss; /* we round it to kbytes */
-@@ -924,6 +933,7 @@ enum {
+@@ -924,6 +941,7 @@ enum {
  	PSSCAN_UTIME    = 1 << 13,
  	PSSCAN_TTY      = 1 << 14,
  	USE_SELINUX(PSSCAN_CONTEXT  = 1 << 15,)
@@ -725,9 +800,19 @@ diff -uprN busybox-1.7.2-base/include/libbb.h busybox-1.7.2-smack/include/libbb.
  	/* These are all retrieved from proc/NN/stat in one go: */
  	PSSCAN_STAT     = PSSCAN_PPID | PSSCAN_PGID | PSSCAN_SID
  	                | PSSCAN_COMM | PSSCAN_STATE
-diff -uprN busybox-1.7.2-base/include/usage.h busybox-1.7.2-smack/include/usage.h
---- busybox-1.7.2-base/include/usage.h	2007-09-03 04:48:46.000000000 -0700
-+++ busybox-1.7.2-smack/include/usage.h	2007-11-20 13:17:10.000000000 -0800
+@@ -1012,6 +1030,9 @@ extern const char bb_path_gshadow_file[]
+ extern const char bb_path_group_file[];
+ extern const char bb_path_motd_file[];
+ extern const char bb_path_wtmp_file[];
++#if ENABLE_SMACK
++extern const char bb_path_smack_user[];
++#endif
+ extern const char bb_dev_null[];
+ extern const char bb_busybox_exec_path[];
+ /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
+diff -uprN busybox-1.7.2/include/usage.h busybox-1.7.2-smack/include/usage.h
+--- busybox-1.7.2/include/usage.h	2007-09-03 04:48:46.000000000 -0700
++++ busybox-1.7.2-smack/include/usage.h	2008-05-27 21:33:33.000000000 -0700
 @@ -1391,6 +1391,9 @@
  	USE_SELINUX( \
         "	-Z	prints only the security context\n" \
@@ -806,9 +891,9 @@ diff -uprN busybox-1.7.2-base/include/usage.h busybox-1.7.2-smack/include/usage.
         " %i	File System ID in hex\n" \
         " %l	Maximum length of filenames\n" \
         " %n	File name\n" \
-diff -uprN busybox-1.7.2-base/libbb/Kbuild busybox-1.7.2-smack/libbb/Kbuild
---- busybox-1.7.2-base/libbb/Kbuild	2007-09-03 04:48:41.000000000 -0700
-+++ busybox-1.7.2-smack/libbb/Kbuild	2007-11-12 17:23:05.000000000 -0800
+diff -uprN busybox-1.7.2/libbb/Kbuild busybox-1.7.2-smack/libbb/Kbuild
+--- busybox-1.7.2/libbb/Kbuild	2007-09-03 04:48:41.000000000 -0700
++++ busybox-1.7.2-smack/libbb/Kbuild	2008-05-27 21:33:33.000000000 -0700
 @@ -112,6 +112,7 @@ lib-$(CONFIG_LOGIN) += correct_password.
  lib-$(CONFIG_DF) += find_mount_point.o
  lib-$(CONFIG_MKFS_MINIX) += find_mount_point.o
@@ -817,9 +902,22 @@ diff -uprN busybox-1.7.2-base/libbb/Kbuild busybox-1.7.2-smack/libbb/Kbuild
  
  # We shouldn't build xregcomp.c if we don't need it - this ensures we don't
  # require regex.h to be in the include dir even if we don't need it thereby
-diff -uprN busybox-1.7.2-base/libbb/procps.c busybox-1.7.2-smack/libbb/procps.c
---- busybox-1.7.2-base/libbb/procps.c	2007-09-03 04:48:41.000000000 -0700
-+++ busybox-1.7.2-smack/libbb/procps.c	2007-11-19 14:58:34.000000000 -0800
+diff -uprN busybox-1.7.2/libbb/messages.c busybox-1.7.2-smack/libbb/messages.c
+--- busybox-1.7.2/libbb/messages.c	2007-09-03 04:48:42.000000000 -0700
++++ busybox-1.7.2-smack/libbb/messages.c	2008-05-29 18:30:11.000000000 -0700
+@@ -34,6 +34,9 @@ const char bb_path_shadow_file[] ALIGN1 
+ const char bb_path_group_file[] ALIGN1 = "/etc/group";
+ const char bb_path_gshadow_file[] ALIGN1 = "/etc/gshadow";
+ const char bb_path_motd_file[] ALIGN1 = "/etc/motd";
++#if ENABLE_SMACK
++const char bb_path_smack_user[] ALIGN1 = "/etc/smack/user";
++#endif
+ const char bb_dev_null[] ALIGN1 = "/dev/null";
+ const char bb_busybox_exec_path[] ALIGN1 = CONFIG_BUSYBOX_EXEC_PATH;
+ const char bb_default_login_shell[] ALIGN1 = LIBBB_DEFAULT_LOGIN_SHELL;
+diff -uprN busybox-1.7.2/libbb/procps.c busybox-1.7.2-smack/libbb/procps.c
+--- busybox-1.7.2/libbb/procps.c	2007-09-03 04:48:41.000000000 -0700
++++ busybox-1.7.2-smack/libbb/procps.c	2008-05-27 21:33:33.000000000 -0700
 @@ -173,6 +173,12 @@ procps_status_t *procps_scan(procps_stat
  				sp->context = NULL;
  		}
@@ -833,10 +931,10 @@ diff -uprN busybox-1.7.2-base/libbb/procps.c busybox-1.7.2-smack/libbb/procps.c
  
  		filename_tail = filename + sprintf(filename, "/proc/%d", pid);
  
-diff -uprN busybox-1.7.2-base/libbb/smack_common.c busybox-1.7.2-smack/libbb/smack_common.c
---- busybox-1.7.2-base/libbb/smack_common.c	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/libbb/smack_common.c	2007-11-20 13:12:15.000000000 -0800
-@@ -0,0 +1,42 @@
+diff -uprN busybox-1.7.2/libbb/smack_common.c busybox-1.7.2-smack/libbb/smack_common.c
+--- busybox-1.7.2/libbb/smack_common.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/libbb/smack_common.c	2008-05-29 18:29:55.000000000 -0700
+@@ -0,0 +1,179 @@
 +/*
 + * libbb/smack_common.c
 + *   -- common Smack utility functions
@@ -846,8 +944,9 @@ diff -uprN busybox-1.7.2-base/libbb/smack_common.c busybox-1.7.2-smack/libbb/sma
 +#include "libbb.h"
 +#include <attr/xattr.h>
 +
-+#define	SMACKATTR	"security.SMACK64"
-+#define	SMACKPROCFMT	"/proc/%d/."
++#define	SMACKPROCPATH	"/proc/%d/attr/current"
++#define SMACKUSERFILE	"/etc/smack/user"
++#define SMACKFILELINE	256
 +
 +int smack_from_file(const char *path, char *result, int len, int follow)
 +{
@@ -872,16 +971,264 @@ diff -uprN busybox-1.7.2-base/libbb/smack_common.c busybox-1.7.2-smack/libbb/sma
 +
 +int smack_from_proc(const int pid, char *result, int len)
 +{
-+	char path[20];
-+	int p;
++	char path[SMACKFILELINE];
++	char buffer[SMACKFILELINE];
++	int fd;
++	int i;
 +
-+	p = (pid < 0) ? getpid() : pid;
-+	sprintf(path, SMACKPROCFMT, p);
-+	return smack_from_file(path, result, len, 1);
++	sprintf(path, SMACKPROCPATH, (pid < 0) ? getpid() : pid);
++
++	fd = open(path, O_RDONLY);
++	if (fd < 0)
++		return -EACCES;
++
++	i = read(fd, buffer, SMACKFILELINE);
++	close(fd);
++
++	if (i <= 0 || i >= len)
++		return -ERANGE;
++	buffer[i] = '\0';
++	strcpy(result, buffer);
++	return 0;
 +}
-diff -uprN busybox-1.7.2-base/Makefile busybox-1.7.2-smack/Makefile
---- busybox-1.7.2-base/Makefile	2007-09-29 16:54:25.000000000 -0700
-+++ busybox-1.7.2-smack/Makefile	2007-10-11 00:10:01.000000000 -0700
++
++int smack_to_file(const char *path, const char *smack, int follow)
++{
++	if (follow)
++		return setxattr(path, SMACKATTR, smack, strlen(smack)+1, 0);
++	return lsetxattr(path, SMACKATTR, smack, strlen(smack)+1, 0);
++}
++
++int smack_to_proc(const int pid, const char *smack)
++{
++	char path[SMACKFILELINE];
++	int fd;
++	int i;
++	int slen;
++
++	slen = strlen(smack) + 1;
++	if (slen >= SMACKBUFFSIZE)
++		return -ERANGE;
++
++	sprintf(path, SMACKPROCPATH, (pid < 0) ? getpid() : pid);
++
++	fd = open(path, O_RDWR);
++	if (fd < 0)
++		return -EACCES;
++
++	i = write(fd, smack, slen);
++	close(fd);
++
++	if (i != slen)
++		return -EINVAL;
++	return 0;
++}
++
++int smack_user_default(const char *user, char *result, int len)
++{
++	char line[SMACKFILELINE];
++	char ruser[SMACKFILELINE];
++	char rsmack[SMACKFILELINE];
++	FILE *fp;
++
++	fp = fopen(bb_path_smack_user, "r");
++	if (fp == NULL)
++		return -ENOENT;
++
++	while (fgets(line, SMACKFILELINE, fp) != NULL) {
++		if (line[0] == '#' || line[0] == '\n')
++			continue;
++		if (sscanf(line, "%s %s", ruser, rsmack) != 2)
++			continue;
++		if (strcmp(ruser, user) != 0)
++			continue;
++		if (strlen(rsmack) >= len)
++			return -ERANGE;
++		strcpy(result, rsmack);
++		return 0;
++	}
++	return -ENOENT;
++}
++
++int smack_user_allowed(const char *user, const char *smack)
++{
++	char line[SMACKFILELINE];
++	char *ruser;
++	char *rsmack;
++	FILE *fp;
++	int rc = 1;
++
++	fp = fopen(SMACKUSERFILE, "r");
++	if (fp == NULL)
++		return -ENOENT;
++
++	while (rc == 1 && fgets(line, SMACKFILELINE, fp) != NULL) {
++		if (line[0] == '#' || line[0] == '\n')
++			continue;
++
++		ruser = strtok(line, " \t\n");
++		if (ruser == NULL)
++			continue;
++
++		if (strcmp(ruser, user) != 0)
++			continue;
++
++		while (rc == 1 && (rsmack = strtok(NULL, " \t\n")) != NULL) {
++			if (strcmp(rsmack, smack) == 0 || strcmp(rsmack, "+") == 0)
++				rc = 0;
++		}
++	}
++	fclose(fp);
++	return (rc == 1) ? -ENOENT : rc;
++}
++
++int smack_user_add(const char *user, const char *smack)
++{
++	char line[SMACKFILELINE];
++	char *ruser;
++	char *rsmack;
++	FILE *fp;
++	int rc = 0;
++
++	fp = fopen(SMACKUSERFILE, "a+");
++	if (fp == NULL)
++		return -ENOENT;
++
++	while (fgets(line, SMACKFILELINE, fp) != NULL) {
++		if (line[0] == '#' || line[0] == '\n')
++			continue;
++
++		ruser = strtok(line, " \t\n");
++		if (ruser == NULL)
++			continue;
++
++		if (strcmp(ruser, user) == 0) {
++			rc = -EEXIST;
++			break;
++		}
++	}
++
++	if (rc == 0)
++		fprintf(fp, "%s %s\n", user, smack);
++
++	fclose(fp);
++	return rc;
++}
+diff -uprN busybox-1.7.2/loginutils/adduser.c busybox-1.7.2-smack/loginutils/adduser.c
+--- busybox-1.7.2/loginutils/adduser.c	2007-09-03 04:48:47.000000000 -0700
++++ busybox-1.7.2-smack/loginutils/adduser.c	2008-05-30 10:39:17.000000000 -0700
+@@ -170,6 +170,9 @@ int adduser_main(int argc, char **argv)
+ {
+ 	struct passwd pw;
+ 	const char *usegroup = NULL;
++	USE_SMACK(char *smack = SMACKSTAR;)
++	USE_SMACK(char *cp;)
++	USE_SMACK(int rc;)
+ 
+ 	/* got root? */
+ 	if (geteuid()) {
+@@ -182,7 +185,11 @@ int adduser_main(int argc, char **argv)
+ 
+ 	/* exactly one non-option arg */
+ 	opt_complementary = "=1";
++#if ENABLE_SMACK
++	getopt32(argv, "h:g:s:G:L:DSH", &pw.pw_dir, &pw.pw_gecos, &pw.pw_shell, &usegroup, &smack);
++#else
+ 	getopt32(argv, "h:g:s:G:DSH", &pw.pw_dir, &pw.pw_gecos, &pw.pw_shell, &usegroup);
++#endif
+ 	argv += optind;
+ 
+ 	/* create a passwd struct */
+@@ -195,6 +202,16 @@ int adduser_main(int argc, char **argv)
+ 	pw.pw_uid = 0;
+ 	pw.pw_gid = usegroup ? xgroup2gid(usegroup) : 0; /* exits on failure */
+ 
++#if ENABLE_SMACK
++	if (smack_user_add(pw.pw_name, smack) < 0)
++		bb_error_msg("cannot add user smack entry");
++	if ((rc = adduser(&pw)) == 0)
++		if ((cp = strtok(smack, " \t")) != NULL)
++			if (smack_to_file(pw.pw_dir, smack, 0) != 0)
++				bb_error_msg("cannot set smack on home directory");
++	return rc;
++#else
+ 	/* grand finale */
+ 	return adduser(&pw);
++#endif
+ }
+diff -uprN busybox-1.7.2/loginutils/login.c busybox-1.7.2-smack/loginutils/login.c
+--- busybox-1.7.2/loginutils/login.c	2007-09-29 16:54:12.000000000 -0700
++++ busybox-1.7.2-smack/loginutils/login.c	2008-05-30 10:38:07.000000000 -0700
+@@ -242,6 +242,7 @@ int login_main(int argc, char **argv)
+ 	USE_PAM(pam_handle_t *pamh;)
+ 	USE_PAM(int pamret;)
+ 	USE_PAM(const char *failed_msg;)
++	USE_SMACK(char smack[SMACKBUFFSIZE];);
+ 
+ 	short_tty = full_tty;
+ 	username[0] = '\0';
+@@ -406,6 +407,12 @@ int login_main(int argc, char **argv)
+ 		}
+ 	}
+ #endif
++#if ENABLE_SMACK
++	if (smack_user_default(pw->pw_name, smack, SMACKBUFFSIZE) < 0)
++		strcpy(smack, SMACKFLOOR);
++	if (smack_to_proc(-1, smack) < 0)
++		bb_perror_msg_and_die("cannot set smack");
++#endif
+ 	/* Try these, but don't complain if they fail.
+ 	 * _f_chown is safe wrt race t=ttyname(0);...;chown(t); */
+ 	fchown(0, pw->pw_uid, pw->pw_gid);
+diff -uprN busybox-1.7.2/loginutils/su.c busybox-1.7.2-smack/loginutils/su.c
+--- busybox-1.7.2/loginutils/su.c	2007-09-03 04:48:47.000000000 -0700
++++ busybox-1.7.2-smack/loginutils/su.c	2008-05-29 14:25:15.000000000 -0700
+@@ -22,6 +22,7 @@ int su_main(int argc, char **argv)
+ 	uid_t cur_uid = getuid();
+ 	const char *tty;
+ 	char *old_user;
++	USE_SMACK(char smack[SMACKBUFFSIZE];)
+ 
+ 	flags = getopt32(argv, "mplc:s:", &opt_command, &opt_shell);
+ 	argc -= optind;
+@@ -95,6 +96,12 @@ int su_main(int argc, char **argv)
+ 	change_identity(pw);
+ 	setup_environment(opt_shell, flags & SU_OPT_l, !(flags & SU_OPT_mp), pw);
+ 	USE_SELINUX(set_current_security_context(NULL);)
++#if ENABLE_SMACK
++	if (smack_from_proc(-1, smack, SMACKBUFFSIZE) < 0)
++		bb_error_msg_and_die("cannot identify process smack");
++	if (smack_user_allowed(pw->pw_name, smack) < 0)
++		bb_error_msg_and_die("new usr not allowed current smack");
++#endif
+ 
+ 	/* Never returns */
+ 	run_shell(opt_shell, flags & SU_OPT_l, opt_command, (const char**)argv);
+diff -uprN busybox-1.7.2/loginutils/sulogin.c busybox-1.7.2-smack/loginutils/sulogin.c
+--- busybox-1.7.2/loginutils/sulogin.c	2007-09-03 04:48:47.000000000 -0700
++++ busybox-1.7.2-smack/loginutils/sulogin.c	2008-05-30 10:41:31.000000000 -0700
+@@ -49,6 +49,7 @@ int sulogin_main(int argc, char **argv)
+ 	struct spwd spw;
+ 	struct spwd *result;
+ #endif
++	USE_SMACK(char smack[SMACKBUFFSIZE];)
+ 
+ 	logmode = LOGMODE_BOTH;
+ 	openlog(applet_name, 0, LOG_AUTH);
+@@ -110,6 +111,10 @@ int sulogin_main(int argc, char **argv)
+ 	bb_info_msg("System Maintenance Mode");
+ 
+ 	USE_SELINUX(renew_current_security_context());
++#if ENABLE_SMACK
++	if (smack_to_proc(-1, SMACKFLOOR) < 0)
++		bb_error_msg("login incorrect");
++#endif
+ 
+ 	shell = getenv("SUSHELL");
+ 	if (!shell) shell = getenv("sushell");
+diff -uprN busybox-1.7.2/Makefile busybox-1.7.2-smack/Makefile
+--- busybox-1.7.2/Makefile	2007-09-29 16:54:25.000000000 -0700
++++ busybox-1.7.2-smack/Makefile	2008-05-27 21:33:33.000000000 -0700
 @@ -449,6 +449,7 @@ libs-y		:= \
  		procps/ \
  		runit/ \
@@ -890,9 +1237,65 @@ diff -uprN busybox-1.7.2-base/Makefile busybox-1.7.2-smack/Makefile
  		shell/ \
  		sysklogd/ \
  		util-linux/ \
-diff -uprN busybox-1.7.2-base/procps/ps.c busybox-1.7.2-smack/procps/ps.c
---- busybox-1.7.2-base/procps/ps.c	2007-09-03 04:48:55.000000000 -0700
-+++ busybox-1.7.2-smack/procps/ps.c	2007-11-19 15:09:38.000000000 -0800
+diff -uprN busybox-1.7.2/miscutils/crond.c busybox-1.7.2-smack/miscutils/crond.c
+--- busybox-1.7.2/miscutils/crond.c	2007-09-03 04:48:45.000000000 -0700
++++ busybox-1.7.2-smack/miscutils/crond.c	2008-05-30 14:24:19.000000000 -0700
+@@ -917,10 +917,22 @@ static void RunJob(const char *user, Cro
+ {
+ 	/* Fork as the user in question and run program */
+ 	pid_t pid = fork();
++	USE_SMACK(char smack[SMACKBUFFSIZE];)
+ 
+ 	if (pid == 0) {
+ 		/* CHILD */
+ 
++#if ENABLE_SMACK
++		if (smack_user_default(user, smack, SMACKBUFFSIZE) < 0) {
++			crondlog("\024user %s default smack unknown\n", user);
++			exit(0);
++		}
++		if (smack_to_proc(-1, smack) < 0) {
++			crondlog("\024user %s smack unsettable\n", user);
++			exit(0);
++		}
++#endif
++
+ 		/* Change running state to the user in question */
+ 
+ 		if (ChangeUser(user) < 0) {
+diff -uprN busybox-1.7.2/miscutils/crontab.c busybox-1.7.2-smack/miscutils/crontab.c
+--- busybox-1.7.2/miscutils/crontab.c	2007-09-03 04:48:45.000000000 -0700
++++ busybox-1.7.2-smack/miscutils/crontab.c	2008-05-30 11:59:31.000000000 -0700
+@@ -42,6 +42,10 @@ int crontab_main(int ac, char **av)
+ 	char caller[256];           /* user that ran program */
+ 	char buf[1024];
+ 	int UserId;
++#if ENABLE_SMACK
++	char psmack[SMACKBUFFSIZE];
++	char dsmack[SMACKBUFFSIZE];
++#endif
+ 
+ 	UserId = getuid();
+ 	pas = getpwuid(UserId);
+@@ -120,6 +124,15 @@ int crontab_main(int ac, char **av)
+ 	if (pas == NULL)
+ 		bb_perror_msg_and_die("getpwuid");
+ 
++#if ENABLE_SMACK
++	if (smack_user_default(pas->pw_name, dsmack, SMACKBUFFSIZE) < 0)
++		bb_perror_msg_and_die("user default smack unknown");
++	if (smack_from_proc(-1, psmack, SMACKBUFFSIZE) < 0)
++		bb_perror_msg_and_die("user default smack unknown");
++	if (strcmp(dsmack, psmack) != 0)
++		bb_perror_msg_and_die("current smack is not default smack");
++#endif
++
+ 	/*
+ 	 * If there is a replacement file, obtain a secure descriptor to it.
+ 	 */
+diff -uprN busybox-1.7.2/procps/ps.c busybox-1.7.2-smack/procps/ps.c
+--- busybox-1.7.2/procps/ps.c	2007-09-03 04:48:55.000000000 -0700
++++ busybox-1.7.2-smack/procps/ps.c	2008-05-27 21:33:33.000000000 -0700
 @@ -80,6 +80,13 @@ static void func_label(char *buf, int si
  }
  #endif
@@ -1016,9 +1419,9 @@ diff -uprN busybox-1.7.2-base/procps/ps.c busybox-1.7.2-smack/procps/ps.c
  		{
  			const char *user = get_cached_username(p->uid);
  			if (p->vsz == 0)
-diff -uprN busybox-1.7.2-base/smack/Config.in busybox-1.7.2-smack/smack/Config.in
---- busybox-1.7.2-base/smack/Config.in	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/Config.in	2007-11-20 12:02:40.000000000 -0800
+diff -uprN busybox-1.7.2/smack/Config.in busybox-1.7.2-smack/smack/Config.in
+--- busybox-1.7.2/smack/Config.in	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/Config.in	2008-05-27 21:33:33.000000000 -0700
 @@ -0,0 +1,38 @@
 +#
 +# For a description of the syntax of this configuration file,
@@ -1058,9 +1461,9 @@ diff -uprN busybox-1.7.2-base/smack/Config.in busybox-1.7.2-smack/smack/Config.i
 +	  to determine if smack is enabled.
 +
 +endmenu
-diff -uprN busybox-1.7.2-base/smack/Kbuild busybox-1.7.2-smack/smack/Kbuild
---- busybox-1.7.2-base/smack/Kbuild	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/Kbuild	2007-11-20 12:02:02.000000000 -0800
+diff -uprN busybox-1.7.2/smack/Kbuild busybox-1.7.2-smack/smack/Kbuild
+--- busybox-1.7.2/smack/Kbuild	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/Kbuild	2008-05-27 21:33:33.000000000 -0700
 @@ -0,0 +1,12 @@
 +# Makefile for busybox
 +#
@@ -1074,10 +1477,10 @@ diff -uprN busybox-1.7.2-base/smack/Kbuild busybox-1.7.2-smack/smack/Kbuild
 +lib-$(CONFIG_SMACKLOAD)		+= smackload.o
 +lib-$(CONFIG_SMACKCIPSO)	+= smackcipso.o
 +lib-$(CONFIG_SMACKENABLED)	+= smackenabled.o
-diff -uprN busybox-1.7.2-base/smack/newsmack.c busybox-1.7.2-smack/smack/newsmack.c
---- busybox-1.7.2-base/smack/newsmack.c	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/newsmack.c	2007-11-20 11:30:06.000000000 -0800
-@@ -0,0 +1,59 @@
+diff -uprN busybox-1.7.2/smack/newsmack.c busybox-1.7.2-smack/smack/newsmack.c
+--- busybox-1.7.2/smack/newsmack.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/newsmack.c	2008-05-28 17:26:04.000000000 -0700
+@@ -0,0 +1,61 @@
 +/*
 + * newsmack label [ command [ arg ] ... ]
 + *
@@ -1092,10 +1495,9 @@ diff -uprN busybox-1.7.2-base/smack/newsmack.c busybox-1.7.2-smack/smack/newsmac
 +int newsmack_main(int argc, char **argv);
 +int newsmack_main(int argc, char **argv)
 +{
-+	const char *selfish = "/proc/self/attr/current";
++	struct passwd *pwd;
 +	char *newargv[256]; /* yes, I know */
 +	char *smack;
-+	int fd;
 +	int i;
 +	int newargc;
 +
@@ -1119,16 +1521,19 @@ diff -uprN busybox-1.7.2-base/smack/newsmack.c busybox-1.7.2-smack/smack/newsmac
 +	}
 +
 +	/*
++	 * Verify the user is allowed the Smack label
++	 */
++	pwd = getpwuid(getuid());
++	if (pwd == NULL)
++		bb_error_msg_and_die("User name not obtained");
++	if (smack_user_allowed(pwd->pw_name, smack) != 0)
++		bb_error_msg_and_die("User not allowed this smack label");
++	/*
 +	 * Set the process label.
 +	 */
-+	if ((fd = open(selfish, O_RDWR)) < 0)
-+		bb_error_msg_and_die("cannot open to set smack");
-+
-+
-+	i = write(fd, smack, strlen(smack));
-+	close(fd);
++	i = smack_to_proc(-1, smack);
 +	if (i < 0)
-+		bb_error_msg_and_die("cannot write to set smack");
++		bb_error_msg_and_die("Cannot set smack");
 +
 +	/*
 +	 * Do the exec
@@ -1137,9 +1542,9 @@ diff -uprN busybox-1.7.2-base/smack/newsmack.c busybox-1.7.2-smack/smack/newsmac
 +
 +	bb_error_msg_and_die("%s: exec failure.", newargv[0]);
 +}
-diff -uprN busybox-1.7.2-base/smack/smackcipso.c busybox-1.7.2-smack/smack/smackcipso.c
---- busybox-1.7.2-base/smack/smackcipso.c	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/smackcipso.c	2007-11-20 11:51:18.000000000 -0800
+diff -uprN busybox-1.7.2/smack/smackcipso.c busybox-1.7.2-smack/smack/smackcipso.c
+--- busybox-1.7.2/smack/smackcipso.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackcipso.c	2008-05-27 21:33:33.000000000 -0700
 @@ -0,0 +1,119 @@
 +/*
 + * smackcipso - properly format smack access cipsos for
@@ -1260,9 +1665,9 @@ diff -uprN busybox-1.7.2-base/smack/smackcipso.c busybox-1.7.2-smack/smack/smack
 +	}
 +	return status;
 +}
-diff -uprN busybox-1.7.2-base/smack/smackenabled.c busybox-1.7.2-smack/smack/smackenabled.c
---- busybox-1.7.2-base/smack/smackenabled.c	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/smackenabled.c	2007-11-20 12:33:49.000000000 -0800
+diff -uprN busybox-1.7.2/smack/smackenabled.c busybox-1.7.2-smack/smack/smackenabled.c
+--- busybox-1.7.2/smack/smackenabled.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackenabled.c	2008-05-27 21:33:33.000000000 -0700
 @@ -0,0 +1,17 @@
 +/*
 + * smackenabled
@@ -1281,9 +1686,9 @@ diff -uprN busybox-1.7.2-base/smack/smackenabled.c busybox-1.7.2-smack/smack/sma
 +		return 0;
 +	return 1;
 +}
-diff -uprN busybox-1.7.2-base/smack/smackload.c busybox-1.7.2-smack/smack/smackload.c
---- busybox-1.7.2-base/smack/smackload.c	1969-12-31 16:00:00.000000000 -0800
-+++ busybox-1.7.2-smack/smack/smackload.c	2007-11-20 11:42:33.000000000 -0800
+diff -uprN busybox-1.7.2/smack/smackload.c busybox-1.7.2-smack/smack/smackload.c
+--- busybox-1.7.2/smack/smackload.c	1969-12-31 16:00:00.000000000 -0800
++++ busybox-1.7.2-smack/smack/smackload.c	2008-05-27 21:33:33.000000000 -0700
 @@ -0,0 +1,93 @@
 +/*
 + * smackload - properly format smack access rules for
