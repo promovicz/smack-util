@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "smack.h"
 
@@ -35,7 +36,6 @@ main(int argc, char *argv[])
 	int cipsofd;
 	char line[512];
 	char cipso[LSIZE + NSIZE + NSIZE + (NSIZE * MAXCATNUM)];
-	char smack[LSIZE+1];
 	char cats[MAXCATNUM+1][NSIZE+1];
 	char *cp;
 	int level;

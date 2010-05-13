@@ -11,6 +11,9 @@
  * Returns 1 on success, 0 on failure, -1 on error.
  */
 
+/* need this for strcasestr */
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

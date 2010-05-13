@@ -13,8 +13,6 @@ int getsmackuser_r(const char *name, struct smackuser *su,
 	char *line;
 	size_t linelen;
 
-	char *line_user, *line_label;
-
 	fp = fopen(SMACK_USERS, "r");
 	if(!fp) {
 		perror("opening " SMACK_USERS);

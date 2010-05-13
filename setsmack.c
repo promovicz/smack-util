@@ -1,6 +1,7 @@
 
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 #define PROCSELFATTRCURRENT	"/proc/self/attr/current"
 

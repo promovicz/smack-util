@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "smack.h"
+
 #define ETCSMACKUSER		"/etc/smack/user"
 #define PROCSELFATTRCURRENT	"/proc/self/attr/current"
 

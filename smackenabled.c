@@ -11,7 +11,7 @@ int smackenabled(void) {
 
 	fp = fopen("/proc/mounts", "r");
 	if (!fp)
-		return;
+		goto out;
 
 	while ((num = getline(&buf, &len, fp)) != -1) {
 		char *tmp;
@@ -29,5 +29,10 @@ int smackenabled(void) {
 	}
 
  out:
+	if(fp) {
+		fclose(fp);
+		fp = NULL;
+	}
+
 	return enabled;
 }
