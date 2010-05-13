@@ -1,0 +1,38 @@
+Source: smack-utils
+Section: unknown
+Priority: extra
+Maintainer: Ingo Albrecht <prom@berlin.ccc.de>
+Build-Depends: cdbs, debhelper (>= 7)
+Standards-Version: 3.8.3
+Homepage: <insert the upstream URL, if relevant>
+
+Package: smack-utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Utilities for SMACK access control
+ This package contains the utilities necessary to operate
+ a system with SMACK mandatory access control.
+
+Package: libsmack0
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Library for controlling SMACK access control
+ XXX
+
+Package: libsmack0-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Debugging info for SMACK access control
+ XXX
+
+Package: libsmack-dev
+Architecture: any
+Depends: libsmack0, libc6-dev
+Description: Development files for libsmack
+ XXX
+
+Package: libpam-smack
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: PAM module for setting SMACK labels
+ XXX
