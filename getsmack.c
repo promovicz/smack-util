@@ -38,10 +38,10 @@ int getsmack(char *label, size_t n) {
 	return 0;
 
  failread:
+ failnotsup:
 	close(fd);
 
  failopen:
  failspace:
- failnotsup:
 	return -1;
 }
