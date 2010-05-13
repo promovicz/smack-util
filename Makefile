@@ -18,7 +18,7 @@ default: ${PROGRAMS} ${STATICLIB} pam_smack.so
 ${PROGRAMS}: ${STATICLIB}
 
 clean:
-	rm -f ${PROGRAMS} ${STATICLIB} ${LIBSMACKOBJ}
+	rm -f ${PROGRAMS} ${STATICLIB} ${LIBSMACKOBJ} pam_smack.so pam_smack.o
 
 libsmack.a: ${LIBSMACKOBJ}
 	ar cr $@ ${LIBSMACKOBJ}
