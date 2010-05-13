@@ -5,25 +5,60 @@
 # Copyright (c) 2007 Casey Schaufler <casey@schaufler-ca.com>
 #
 
-PROGRAMS = smackload smackcipso smackpolyport smackexec t
+CFLAGS = -Wall -Werror -g -O2
 
-STATICLIB = libsmack.a
+UTILS = smackload smackcipso smackexec
 
-LIBSMACKOBJ = smackrecvmsg.o smackaccess.o setsmack.o getsmack.o smackenabled.o getsmackuser.o
+PAMSMACK = pam_smack.so
+PAMSMACKSRC = pam_smack.c
 
-CFLAGS+=-fPIC -L. -lsmack
+LIBSMACK_STATIC = libsmack.a
+LIBSMACK_SHARED = libsmack.so
+LIBSMACKSRC = smackaccess.c setsmack.c getsmack.c smackenabled.c getsmackuser.c
+LIBSMACKOBJ = $(patsubst %.c,%.o,${LIBSMACKSRC})
+LIBSMACKOBJ_STATIC = $(patsubst %.o,static/%.o,${LIBSMACKOBJ})
+LIBSMACKOBJ_SHARED = $(patsubst %.o,shared/%.o,${LIBSMACKOBJ})
 
-default: ${PROGRAMS} ${STATICLIB} pam_smack.so
+# GENERAL RULES
 
-${PROGRAMS}: ${STATICLIB}
+default: ${LIBSMACK_STATIC} ${LIBSMACK_SHARED} ${UTILS}
 
 clean:
-	rm -f ${PROGRAMS} ${STATICLIB} ${LIBSMACKOBJ} pam_smack.so pam_smack.o
+	rm -rf static shared
+	rm -f ${UTILS} ${LIBSMACK_STATIC} ${LIBSMACK_SHARED} ${PAMSMACK}
 
-libsmack.a: ${LIBSMACKOBJ}
-	ar cr $@ ${LIBSMACKOBJ}
+# UTILS
 
-pam_smack.so: pam_smack.o ${LIBSMACKOBJ}
-	$(CC) -fPIC -shared -o pam_smack.so pam_smack.o ${LIBSMACKOBJ} -lpam
+utils: ${UTILS}
+
+%: %.c ${LIBSMACK_STATIC}
+	$(CC) $(CFLAGS) -o $@ $^
+
+# PAM MODULE
+
+${PAMSMACK}: ${PAMSMACKSRC} ${LIBSMACK_SHARED}
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ $^
+
+# STATIC LIBRARY
+
+static:
+	mkdir static
+
+static/%.o: %.c | static
+	$(CC) $(CFLAGS) -c -o $@ $^
+
+${LIBSMACK_STATIC}: ${LIBSMACKOBJ_STATIC}
+	ar cr ${LIBSMACK_STATIC} ${^}
+
+# SHARED LIBRARY
+
+shared:
+	mkdir shared
+
+shared/%.o: %.c | shared
+	$(CC) $(CFLAGS) -c -fPIC -o $@ $^
+
+${LIBSMACK_SHARED}: ${LIBSMACKOBJ_SHARED}
+	$(CC) $(CFLAGS) -fPIC -shared -o ${LIBSMACK_SHARED} ${LIBSMACKOBJ_SHARED}
 
 
